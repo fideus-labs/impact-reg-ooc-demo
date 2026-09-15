@@ -83,9 +83,10 @@ bottom): median residual 0.45 mm → under 0.02 mm, one voxel.
 
 <p><img src="figures/linc_level4.png" width="34%"> <img src="figures/linc_zoom_edges.png" width="62%"></p>
 
-**The competition pair**: DTI FA onto PS-OCT retardance, on the FA's 0.4 mm grid, with the three engines through the same
-pipeline. Gold: the retardance's white-matter outline, the same in every panel; grey: the FA, moving. After the affine
-alone the tracts sit beside the lines; after elastix and FireANTs, under them.
+**The competition pair**: DTI FA onto PS-OCT retardance, on the FA's 0.4 mm grid, through the same pipeline with intensity
+losses or IMPACT features. Gold: the retardance's white-matter outline, the same in every panel; grey: the FA, moving. After
+the affine alone the tracts sit beside the lines; after each registration, under them. The zoom is the 24 mm box with the
+largest correction.
 
 ![subject_v: the FA under the retardance's outline](figures/apex_subject_v.png)
 
@@ -93,6 +94,7 @@ alone the tracts sit beside the lines; after elastix and FireANTs, under them.
 |---|---|---|---|
 | elastix, MI + bending energy | 0.40 / 0.57 mm | 0 % | 5.0 / 3.8 mm |
 | FireANTs, SyN + CC | 0.40 / 0.40 mm | 0 % | 2.7 / 2.1 mm |
+| FireANTs, SyN + IMPACT (TotalSegmentator features) | 0.40 / 0.57 mm | 0 % | 2.6 / 2.5 mm |
 | ConvexAdam, MIND | 0.57 / 0.57 mm | 1.6 % | 13.5 / 14.5 mm |
 
 Residual: the median in-plane shift of the FA, in 12 mm windows, that best matches the retardance; 1.26 / 1.13 mm after
