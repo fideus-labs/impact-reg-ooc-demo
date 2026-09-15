@@ -1,0 +1,129 @@
+// APEX CONNECTS: DTI FA (moving) onto PS-OCT retardance (fixed), 0.4 mm pair after the stage-1 affine.
+// From ImpactLoss/ParameterMaps/ParameterMap_SAM_2_Layers_Jacobian.txt: SAM2.1/SAM2.1_Tiny.pt, Jacobian; feature voxel sizes 0.8/0.8/0.4/0.4 mm, final grid 2 mm, CPU (ImpactGPU -1, mixed precision off), DefaultPixelValue 0, samples outside the moving image tolerated (RequiredRatioOfValidSamples 0.05).
+// The engine derives the patch size from each model's field of view (MIND R1D2 5, TS M730 layers 01: 5, SAM 29), not the example's 7 or 11.
+// IMPACT metric
+(Metric "Impact")
+
+(ImpactModelsPath0 "SAM2.1/SAM2.1_Tiny.pt")
+(ImpactDimension0 2)
+(ImpactNumberOfChannels0 3)
+(ImpactPatchSize0 29 29)
+(ImpactVoxelSize0 0.8 0.8 0.8)
+(ImpactLayersMask0 "01")
+(ImpactPCA0 0)
+(ImpactSubsetFeatures0 1000)
+(ImpactDistance0 "L2")
+(ImpactLayersWeight0 1)
+
+(ImpactModelsPath1 "SAM2.1/SAM2.1_Tiny.pt")
+(ImpactDimension1 2)
+(ImpactNumberOfChannels1 3)
+(ImpactPatchSize1 29 29)
+(ImpactVoxelSize1 0.8 0.8 0.8)
+(ImpactLayersMask1 "01")
+(ImpactPCA1 0)
+(ImpactSubsetFeatures1 1000)
+(ImpactDistance1 "L2")
+(ImpactLayersWeight1 1)
+
+(ImpactModelsPath2 "SAM2.1/SAM2.1_Tiny.pt")
+(ImpactDimension2 2)
+(ImpactNumberOfChannels2 3)
+(ImpactPatchSize2 29 29)
+(ImpactVoxelSize2 0.4 0.4 0.4)
+(ImpactLayersMask2 "01")
+(ImpactPCA2 0)
+(ImpactSubsetFeatures2 1000)
+(ImpactDistance2 "L2")
+(ImpactLayersWeight2 1)
+
+(ImpactModelsPath3 "SAM2.1/SAM2.1_Tiny.pt")
+(ImpactDimension3 2)
+(ImpactNumberOfChannels3 3)
+(ImpactPatchSize3 29 29)
+(ImpactVoxelSize3 0.4 0.4 0.4)
+(ImpactLayersMask3 "01")
+(ImpactPCA3 0)
+(ImpactSubsetFeatures3 1000)
+(ImpactDistance3 "L2")
+(ImpactLayersWeight3 1)
+
+
+(ImpactMode "Jacobian")
+(ImpactGPU -1)
+(ImpactUseMixedPrecision "false")
+(ImpactFeaturesMapUpdateInterval -1)
+(ImpactWriteFeatureMaps "false")
+
+// Elastix configuration
+(MaximumNumberOfIterations 500 500 500 500)
+(NumberOfSpatialSamples 2000)
+(Transform "RecursiveBSplineTransform")
+(NumberOfResolutions 4)
+(FinalGridSpacingInPhysicalUnits 2)
+(FixedImagePyramid "FixedGenericImagePyramid")
+(MovingImagePyramid "MovingGenericImagePyramid")
+(ImagePyramidRescaleSchedule 1 1 1 1 1 1 1 1 1 1 1 1)
+(ImagePyramidSmoothingSchedule 1 1 1 1 1 1 1 1 1 1 1 1)
+
+// imageTypes
+(FixedInternalImagePixelType "float")
+(MovingInternalImagePixelType "float")
+(UseDirectionCosines "true")
+
+// components
+(Registration "MultiMetricMultiResolutionRegistration")
+(BSplineTransformSplineOrder 3)
+(UseCyclicTransform "false")
+
+// transform
+(AutomaticTransformInitialization "false")
+(AutomaticTransformInitializationMethod "GeometricalCenter")
+(AutomaticScalesEstimation "true")
+(HowToCombineTransforms "Compose")
+
+// optimizer
+(Optimizer "AdaptiveStochasticGradientDescent")
+(MaximumNumberOfSamplingAttempts 8)
+(UseAdaptiveStepSizes "true")
+(UseMultiThreadingForMetrics "true")
+(ASGDParameterEstimationMethod "DisplacementDistribution")
+(SigmoidInitialTime 0.0)
+(NoiseCompensation "true")
+(NumberOfSamplesForExactGradient 4096)
+
+// automatic
+(AutomaticParameterEstimation "true")
+
+(FixedKernelBSplineOrder 3)
+(MovingKernelBSplineOrder 3)
+(CheckNumberOfSamples "false")
+(RequiredRatioOfValidSamples 0.05)
+(UseRelativeWeights "false")
+
+// several
+(WriteTransformParametersEachIteration "false")
+(WriteTransformParametersEachResolution "false")
+(ShowExactMetricValue "false")
+(ErodeFixedMask "false")
+(ErodeMovingMask "false")
+(UseBinaryFormatForTransformationParameters "false")
+
+// imageSampler
+(Interpolator "BSplineInterpolator")
+(ImageSampler "RandomCoordinate")
+(NewSamplesEveryIteration "true")
+(UseRandomSampleRegion "false")
+
+// interpolator and resampler
+(ResampleInterpolator "FinalBSplineInterpolator")
+(FinalBSplineInterpolationOrder 3)
+(BSplineInterpolationOrder 3)
+(Resampler "DefaultResampler")
+(WriteIterationInfo "false")
+(WriteResultImage "false")
+(DefaultPixelValue 0)
+(ResultImageFormat "mha")
+
+(ITKTransformOutputFileNameExtension "itk.txt")
+(WriteITKCompositeTransform "true")
