@@ -1,0 +1,104 @@
+[workspace]
+name = "impact-reg-ooc-demo"
+description = "Out-of-core multimodal registration with KonfAI and IMPACT: the competition pair, end to end"
+channels = ["conda-forge"]
+platforms = ["linux-64"]
+
+# Two environments, because the backends disagree on torch: ITKIMPACT (ConvexAdam) pins torch 2.12, while the
+# elastix-IMPACT binary is built against LibTorch 2.8. `default` runs FireANTs and ConvexAdam, `elastix` runs elastix;
+# the pipeline scripts and ngff-zarr are in both. Every torch is a CUDA 12 build: the elastix binary needs
+# libcudart.so.12 beside the LibTorch it links, and PyPI's own torch 2.12 is a CUDA 13 build.
+
+[dependencies]
+python = "3.12.*"
+
+[pypi-dependencies]
+impact-reg-konfai = "*"
+konfai = { version = "*", extras = ["omezarr", "monitoring"] }
+fireants = "*"
+ngff-zarr = { version = "*", extras = ["cli"] }
+simpleitk = ">=2.4"
+scipy = "*"
+h5py = "*"
+
+[pypi-options.dependency-overrides]
+# fireants pins simpleitk==2.2.1, which has no wheel for this Python; the stack's SimpleITK serves it.
+simpleitk = ">=2.4"
+
+[feature.torch212.pypi-dependencies]
+# itk-impact 0.1.3 renamed itk.ModelConfiguration to itk.ImpactModelConfiguration; impact-reg-konfai 1.8.5 uses the old name.
+itk-impact = "==0.1.2"
+torch = { version = "==2.12.*", index = "https://download.pytorch.org/whl/cu129" }
+
+[feature.elastix.pypi-dependencies]
+torch = { version = "==2.8.*", index = "https://download.pytorch.org/whl/cu128" }
+
+[feature.elastix.target.unix.activation.env]
+# libcudart.so.12 comes with the nvidia-cuda-runtime-cu12 wheel, outside torch's own lib/; impact-reg-konfai adds this
+# directory to the elastix binary's loader path.
+KONFAI_ELASTIX_EXTRA_LIB = "$CONDA_PREFIX/lib/python3.12/site-packages/nvidia/cuda_runtime/lib"
+
+[environments]
+default = ["torch212"]
+elastix = ["elastix"]
+
+[tasks.convert]
+cmd = "bash pipeline/convert.sh"
+description = "Every NIfTI under data/input/<subject>/ as an OME-Zarr store under data/ome-zarr/<subject>/ (ngff-zarr CLI)"
+inputs = ["data/input/*/*.nii.gz", "pipeline/convert.sh"]
+outputs = ["data/ome-zarr/*/*.ome.zarr/zarr.json"]
+
+[tasks.prepare]
+cmd = "python pipeline/prepare_pair.py {{ subject }}"
+args = [{ arg = "subject", default = "subject_v" }]
+depends-on = ["convert"]
+description = "Stage 1 (orientation, affine) and the 0.4 mm pair of one subject as OME-Zarr stores under out/<subject>/pair/"
+
+[tasks.register]
+# The preset writes its displacement field as an ITK transform file (Transform.h5) and impact-reg-konfai the moved
+# image as OME-Zarr; the second command writes the field as Transform.ome.zarr beside it, NGFF 0.6rc0 with the RFC-5
+# `displacements` transformation.
+cmd = """impact-reg-konfai register {{ preset }} \
+  -f out/{{ subject }}/pair/Fixed.ome.zarr -m out/{{ subject }}/pair/Moving.ome.zarr \
+  --fixed-mask out/{{ subject }}/pair/FixedMask.ome.zarr --moving-mask out/{{ subject }}/pair/MovingMask.ome.zarr \
+  -o out/{{ subject }}/{{ preset }} {{ device }} \
+  && python pipeline/transform_to_ome_zarr.py out/{{ subject }}/{{ preset }}/P000/Transform.h5 out/{{ subject }}/pair/Fixed.ome.zarr"""
+args = [
+  { arg = "preset", default = "FireANTs_SyN" },
+  { arg = "subject", default = "subject_v" },
+  { arg = "device", default = "--gpu 0" },
+]
+depends-on = [{ task = "prepare", args = ["{{ subject }}"] }]
+description = "One preset on one subject's pair: pixi run register <preset> <subject> [<device>], e.g. register FireANTs_SyN subject_m '--cpu 8' (an elastix preset needs the elastix environment: pixi run -e elastix register ...)"
+
+[tasks.register-fireants]
+depends-on = [{ task = "register", args = ["FireANTs_SyN", "{{ subject }}", "{{ device }}"] }]
+args = [{ arg = "subject", default = "subject_v" }, { arg = "device", default = "--gpu 0" }]
+description = "FireANTs: symmetric diffeomorphic SyN on the GPU"
+
+[tasks.register-impact]
+depends-on = [{ task = "register", args = ["FireANTs_IMPACT", "{{ subject }}", "{{ device }}"] }]
+args = [{ arg = "subject", default = "subject_v" }, { arg = "device", default = "--gpu 0" }]
+description = "FireANTs SyN with the IMPACT loss: segmentation-model features instead of intensities"
+
+[tasks.register-convexadam]
+depends-on = [{ task = "register", args = ["ConvexAdam_Composite", "{{ subject }}", "{{ device }}"] }]
+args = [{ arg = "subject", default = "subject_v" }, { arg = "device", default = "--gpu 0" }]
+description = "ConvexAdam on MIND features"
+
+[tasks.register-elastix]
+# The same `register`, in the elastix environment (its torch 2.8 is the LibTorch the elastix binary links).
+cmd = "pixi run -e elastix register Generic_Rigid_BSpline {{ subject }} '{{ device }}'"
+args = [{ arg = "subject", default = "subject_v" }, { arg = "device", default = "--gpu 0" }]
+description = "elastix: rigid then B-spline, mutual information (in the elastix environment)"
+
+[tasks.register-all]
+depends-on = [
+  { task = "register-elastix", args = ["subject_v"] },
+  { task = "register", args = ["FireANTs_SyN", "subject_v"] },
+  { task = "register", args = ["ConvexAdam_Composite", "subject_v"] },
+  { task = "register-elastix", args = ["subject_m"] },
+  { task = "register", args = ["FireANTs_SyN", "subject_m"] },
+  { task = "register", args = ["ConvexAdam_Composite", "subject_m"] },
+]
+description = "The three engines on both subjects, on GPU 0"

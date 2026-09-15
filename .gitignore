@@ -10,3 +10,4 @@ out/
 *.zip
 __pycache__/
 .venv/
+.pixi/

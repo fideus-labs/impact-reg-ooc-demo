@@ -69,6 +69,41 @@ import zarr
 field = zarr.open_group("out/P000/DVF.ome.zarr", mode="r")["scale0"]["image"]   # (3, z, y, x), mm
 ```
 
+## Run it with pixi
+
+[pixi](https://pixi.sh) installs the whole stack (Python, PyTorch, KonfAI, impact-reg-konfai, ITKIMPACT, FireANTs,
+ngff-zarr) from `pixi.toml` and runs the competition pair end to end. Put the competition's NIfTI files under
+`data/input/<subject>/` (`Ret_slide_deck.nii.gz`, `dti_FA.nii.gz`, and the other slide decks alongside), then:
+
+```bash
+pixi run convert                          # every NIfTI -> data/ome-zarr/<subject>/<name>.ome.zarr, via the ngff-zarr CLI
+pixi run prepare subject_v                # stage 1 (orientation, affine) and the 0.4 mm pair, as OME-Zarr stores
+pixi run register FireANTs_SyN subject_v  # one preset on the pair -> out/subject_v/FireANTs_SyN/P000/
+pixi run register-all                     # elastix, FireANTs and ConvexAdam on both subjects
+```
+
+Each task runs what it depends on: `register` prepares the pair, `prepare` converts the inputs. `register` takes a
+preset name, a subject and the device (`--gpu 0` by default, `'--cpu 8'` for eight CPU workers);
+`register-fireants`, `register-impact`, `register-convexadam` and `register-elastix` are the same with the preset
+filled in. `pixi task list` shows them all. The presets come from the
+[VBoussot/ImpactReg](https://huggingface.co/VBoussot/ImpactReg) Hugging Face repository on first use, and the
+elastix binary from its GitHub release. A run leaves three things under `out/<subject>/<preset>/P000/`:
+`Transform.ome.zarr`, the displacement field as an NGFF 0.6rc0 store with the RFC-5 `displacements` transformation
+(the form [docs/apex_results.md](docs/apex_results.md) describes; the register task writes it from the preset's own
+`Transform.h5`, which stays beside it for 3D Slicer), and `Moved.ome.zarr`, the FA moved onto the retardance grid.
+
+There are two environments, because the backends disagree on PyTorch: ITKIMPACT pins torch 2.12 and the elastix-IMPACT
+binary is built against LibTorch 2.8. `default` runs FireANTs and ConvexAdam; `elastix` runs elastix, which
+`register-elastix` selects by itself (`pixi run -e elastix register Generic_Rigid_BSpline subject_v` is the long form).
+Both torches are CUDA 12 builds from the PyTorch index; the CUDA 13 build PyPI serves for torch 2.12 cannot load the
+elastix binary.
+
+The pair is built by `pipeline/prepare_pair.py` the way the competition runs were: the 48 signed axis permutations of
+the FA scored by mutual information at 1.6 mm, the best three refined by an affine, the retardance resampled to 0.4 mm
+as the fixed image and the FA through the affine as the moving one, with the retardance tissue widened by 1 mm as the
+fixed mask. The stores are in the frame the OME-Zarr metadata gives (identity direction), so a field from here is in
+that frame rather than in the `.mha` files' LPS frame of [docs/apex_results.md](docs/apex_results.md).
+
 ## On the hackathon data
 
 **The LINC hemisphere** ([DANDI 001278](https://dandiarchive.org/dandiset/001278)): 908 GiB of synchrotron X-ray at
@@ -107,6 +142,7 @@ the affine alone. Our measures, the competition sets no criterion. Details, all 
 - [`docs/linc_demo.md`](docs/linc_demo.md) — the full LINC write-up: every stage, its command, its cost and its checks.
 - [`docs/apex_results.md`](docs/apex_results.md) — the competition pair: grids, methods, measures, file formats.
 - [`linc/`](linc/), [`apex/`](apex/) — the scripts those two documents run (they keep the absolute paths of the workstation they ran on).
+- [`pixi.toml`](pixi.toml), [`pipeline/`](pipeline/) — the environment and the tasks that run the competition pair from the NIfTI files, above.
 
 The input data and the registration outputs are not in this repository: the datasets are not ours to redistribute. The
 LINC hemisphere is public on DANDI and the scripts read it from there.
