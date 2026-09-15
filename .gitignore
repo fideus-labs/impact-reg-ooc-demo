@@ -1,23 +1,12 @@
-# data and results never go in this repository (the datasets are not ours to share)
+# the data and the registration outputs never go here
 data/
 out/
-upload/
-backup/
-apex/data
-apex/out/
-apex_manuel/
-topic4/data*/
-topic4/out/
-video/
-.venv/
-__pycache__/
 *.mha
-*.mhd
 *.nii
 *.nii.gz
 *.nrrd
 *.h5
-*.tfm
 *.zarr/
-*.ome.zarr/
 *.zip
+__pycache__/
+.venv/

@@ -1,4 +1,0 @@
-hydra-core
-nibabel
-pandas
-impact_reg_konfai>=1.7.0
