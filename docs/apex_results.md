@@ -80,8 +80,6 @@ All measures are taken on the images of the 0.4 mm grid; the competition gives n
 - **Tissue folded:** fraction of tissue voxels where the Jacobian determinant of x + u(x) is ≤ 0.
 - **Field:** displacement magnitude inside the tissue.
 
-IMPACT runs built from the ImpactLoss example parameter maps (MIND, TotalSegmentator, SAM 2.1 and Anatomix features, no smoothness penalty) folded 8 to 20 % of the tissue. They are not included.
-
 ### Field convention
 
 `u(x)` is in mm, in the physical space of the `.mha` files. The point x of the fixed grid corresponds to x + u(x) in `Moving.mha`, so `Moved(x) = Moving(x + u(x))`.
