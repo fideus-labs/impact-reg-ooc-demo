@@ -9,6 +9,7 @@ driving elastix, FireANTs and ConvexAdam, with the IMPACT losses on segmentation
 **What is not:** the input data and the registration outputs (images, displacement fields). The datasets are not ours to
 redistribute; the LINC hemisphere is public on [DANDI 001278](https://dandiarchive.org/dandiset/001278) and the scripts download
 what they need from there. Paths in the text (`data/...`, `out/...`) refer to a local checkout with those folders.
+The scripts keep the absolute paths of the workstation they ran on (`/home/valentin/Documents/ImpactReg_OOC_Demo`); adjust them to your checkout.
 
 ---
 
