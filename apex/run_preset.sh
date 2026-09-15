@@ -18,7 +18,7 @@ for job in "$@"; do
     impact-reg-konfai register "$preset" -f "$pair/Fixed.mha" -m "$pair/Moving.mha" \
     --fixed-mask "$pair/FixedMask.mha" --moving-mask "$pair/MovingMask.mha" -o "$out" "${device[@]}" > "$log" 2>&1
   tr '\r' '\n' < "$log" | grep -E "^wall|elastix failed|Description|Error:|OutOfMemory" | grep -v Warning | tail -3 | cut -c1-220
-  # the displacement field as an NGFF RFC-5 OME-Zarr beside the transform, checked by reading it back
+  # the displacement field as OME-Zarr RFC-5 beside the transform, checked by reading it back
   [ -f "$out/P000/Transform.h5" ] && python apex/dvf_to_rfc5.py "$out/P000/Transform.h5" "$pair/Fixed.mha"
   ls "$out/P000" 2>&1 | tr '\n' ' '; echo
 done

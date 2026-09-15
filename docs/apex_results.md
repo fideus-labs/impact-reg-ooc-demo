@@ -1,18 +1,19 @@
-# Displacement fields as NGFF RFC-5: APEX CONNECTS pair and LINC out-of-core demo
+# Displacement fields as OME-Zarr RFC-5: APEX CONNECTS pair and LINC out-of-core demo
 
+This describes the result files shared with the hackathon organisers; they are not in this repository (see the README).
 The two folders hold the same kind of result:
-- **`apex/`**: the competition's DTI FA registered onto its PS-OCT retardance slide deck, for `subject_v` and `subject_m`, with three methods.
+- **`apex/`**: the competition's DTI FA registered onto its PS-OCT retardance slide deck, for `subject_v` and `subject_m`, with four methods.
 - **`linc/`**: the out-of-core LINC demo, one result per stage that `linc/README.md` describes.
 
 Each result is:
-- a displacement field, stored as an OME-Zarr (NGFF RFC-5);
+- a displacement field, stored as OME-Zarr RFC-5;
 - the warped moving image;
 - for APEX, a set of overlays.
 
 ```
-apex/subject_v_VB/   Fixed.mha  Moving.mha  overlays.png  checkerboard.png
-                     Moved_<method>.mha          x 3
-                     DVF_<method>.ome.zarr.zip   x 3
+apex/subject_v_VB/   Fixed.mha  Moving.mha  overlays.png
+                     Moved_<method>.mha          x 4
+                     DVF_<method>.ome.zarr.zip   x 4
 apex/subject_m_VB/   (same)
 linc/                README.md
                      <stage>.ome.zarr.zip        displacement field   x 7
@@ -47,6 +48,7 @@ Every method registers the 0.4 mm pair, with the retardance tissue mask widened 
 |---|---|
 | `elastix_MI_bending` | B-spline, Mattes MI + bending energy (weight 100), 4 resolutions, final grid 2 mm |
 | `FireANTs_SyN_CC` | symmetric diffeomorphic SyN, local CC (kernel 5), scales 4/2/1, gradient smoothing σ 1.5, warp smoothing σ 1.0 |
+| `FireANTs_IMPACT_TS` | the same SyN, with the IMPACT loss on TotalSegmentator (M291) feature maps instead of CC |
 | `ConvexAdam_MIND` | ConvexAdam on MIND R2D2 features at 0.8 mm, L1, grid spacing 2, 150 iterations |
 
 ### Files in each subject folder
@@ -57,8 +59,7 @@ Every method registers the 0.4 mm pair, with the retardance tissue mask widened 
 | `Moving.mha` | FA after the stage-1 affine, same grid |
 | `Moved_<method>.mha` | FA after the method, same grid |
 | `DVF_<method>.ome.zarr.zip` | the method's displacement field |
-| `overlays.png` | the retardance in grey with two white-matter contours: the retardance's own (cyan) and the FA's (yellow), after the stage-1 affine alone and after each method; aligned where the two lines coincide. Top row: the grid plane through the tissue centre. Bottom row: the 24 mm box where the FireANTs field moves the FA most in that plane. The two modalities do not outline exactly the same structures: judge the tract edges. |
-| `checkerboard.png` | squares of the retardance (grey) alternating with squares of the FA (light amber), after the stage-1 affine alone and after each method; aligned where structures run on across the square edges. Each image is scaled between its 5th and 99.5th percentile inside the retardance tissue, for display only. Top row: 3.2 mm squares on the plane through the tissue centre. Bottom row: 2.4 mm squares in the same 24 mm box as `overlays.png`. |
+| `overlays.png` | the FA in grey after the stage-1 affine alone and after each method, under the retardance's white-matter outline in gold, the same in every panel; aligned where the bright tracts lie under the gold lines. Top row: the grid plane through the tissue centre. Bottom row: the 24 mm box with the largest correction between the affine and FireANTs, among boxes where FireANTs leaves no residual shift and the two modalities' gradients agree. |
 
 ### Results
 
@@ -69,10 +70,12 @@ All measures are taken on the images of the 0.4 mm grid; the competition gives n
 | subject_v | stage-1 affine only | 0.489 | 1.26 / 1.26 mm | | |
 | subject_v | elastix_MI_bending | 0.702 | 0.40 / 0.40 mm | 0 % | 1.24 / 5.04 mm |
 | subject_v | FireANTs_SyN_CC | 0.726 | 0.40 / 0.40 mm | 0 % | 0.92 / 2.73 mm |
+| subject_v | FireANTs_IMPACT_TS | 0.703 | 0.40 / 0.40 mm | 0 % | 0.81 / 2.56 mm |
 | subject_v | ConvexAdam_MIND | 0.399 | 0.57 / 0.40 mm | 1.6 % | 1.90 / 13.49 mm |
 | subject_m | stage-1 affine only | 0.257 | 1.13 / 1.13 mm | | |
 | subject_m | elastix_MI_bending | 0.355 | 0.57 / 0.40 mm | 0 % | 0.98 / 3.83 mm |
 | subject_m | FireANTs_SyN_CC | 0.389 | 0.40 / 0.40 mm | 0 % | 0.57 / 2.11 mm |
+| subject_m | FireANTs_IMPACT_TS | 0.377 | 0.57 / 0.57 mm | 0 % | 0.52 / 2.49 mm |
 | subject_m | ConvexAdam_MIND | 0.295 | 0.57 / 0.40 mm | 1.6 % | 1.71 / 14.54 mm |
 
 - **MI:** mutual information between retardance and warped FA, inside the retardance tissue.

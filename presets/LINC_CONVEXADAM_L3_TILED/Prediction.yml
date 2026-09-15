@@ -1,0 +1,122 @@
+Predictor:
+  Model:
+    classpath: impact_reg_konfai.models.convexadam:RegistrationNet
+    RegistrationNet:
+      models:
+        '0':
+          ref: VBoussot/impact-torchscript-models:MIND/R2D2_3D.pt
+          voxel_size:
+          - 0.8
+          - 0.8
+          - 0.8
+          layers_mask: '1'
+          layers_weight: 1.0
+          pca: 0
+          distance: L1
+      overlap: 2
+      mixed_precision: false
+      grid_spacing: 2
+      displacement_half_width: 6
+      iterations: 150
+      learning_rate: 0.2
+      regularization_weight: 1.0
+      grid_shrink: 2
+      subset_features: []
+      linear: false
+      linear_iterations: 200
+      seed: 42
+      outputs_criterions: None
+      stages:
+      - coarse
+      - fine
+  Dataset:
+    groups_src:
+      Volume_0:
+        groups_dest:
+          Fixed:
+            transforms:
+              TensorCast:
+                dtype: float32
+                inverse: false
+            patch_transforms: None
+            is_input: true
+      Volume_1:
+        groups_dest:
+          Moving:
+            transforms:
+              TensorCast:
+                dtype: float32
+                inverse: false
+            patch_transforms: None
+            is_input: true
+      Volume_2:
+        groups_dest:
+          FixedMask:
+            transforms:
+              TensorCast:
+                dtype: float32
+                inverse: false
+            patch_transforms: None
+            is_input: true
+      Volume_3:
+        groups_dest:
+          MovingMask:
+            transforms:
+              TensorCast:
+                dtype: float32
+                inverse: false
+            patch_transforms: None
+            is_input: true
+    augmentations:
+      DataAugmentation_0:
+        data_augmentations:
+          Flip:
+            f_prob:
+            - 0
+            - 0.5
+            - 0.5
+            vector_field: true
+            prob: 1
+        nb: 2
+    Patch:
+      patch_size:
+      - 192
+      - 192
+      - 192
+      overlap: 12%
+      pad_value: None
+      extend_slice: 0
+    subset: None
+    filter: None
+    dataset_filenames:
+    - ./Dataset/:mha
+    use_cache: false
+    batch_size: 1
+    num_workers: None
+    pin_memory: false
+    prefetch_factor: None
+    persistent_workers: None
+  outputs_dataset:
+    DisplacementField:
+      OutputDataset:
+        name_class: OutSameAsGroupDataset
+        before_reduction_transforms: None
+        after_reduction_transforms: None
+        final_transforms:
+          TensorCast:
+            dtype: float32
+            inverse: false
+        dataset_filename: Transform:itktransform
+        group: Transform
+        same_as_group: Volume_0:Fixed
+        patch_combine: Cosinus
+        inverse_transform: false
+        reduction: Mean
+        Mean: {}
+  train_name: ImpactReg-ConvexAdam-Composite
+  manual_seed: 42
+  gpu_checkpoints: None
+  images_log: None
+  combine: Mean
+  autocast: false
+  data_log: None

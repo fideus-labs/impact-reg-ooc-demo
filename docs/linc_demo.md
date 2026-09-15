@@ -48,33 +48,20 @@ the winner and refines it at 0.32 mm.
 ```bash
 # stage 2: the coarse deformable, whole hemisphere, masked and regularised, 2 min 06 s
 python masks_linc.py data/linc/pair
-impact-reg-konfai register Generic_Rigid_BSpline \
+KONFAI_IMPACTREG_REPO=$PWD/presets impact-reg-konfai register LINC_BSPLINE_L4 \
   -f data/linc/pair/Fixed.ome.zarr -m data/linc/pair/Moving.ome.zarr \
   --fixed-mask data/linc/pair/FixedMask.ome.zarr --moving-mask data/linc/pair/MovingMask.ome.zarr \
-  -o out/linc_coarse_bend100 --gpu 0 \
-  --set "Predictor.Model.RegistrationNet.parameter_maps=[Parameters_BSpline.txt]" \
-  --set "Predictor.Model.RegistrationNet.final_grid_spacing=3.0" \
-  --set "Predictor.Model.RegistrationNet.max_iterations=600" \
-  --set "Predictor.Model.RegistrationNet.spatial_samples=8192" \
-  --set 'Predictor.Model.RegistrationNet.parameter_overrides=[Registration="MultiMetricMultiResolutionRegistration", Metric="AdvancedMattesMutualInformation" "TransformBendingEnergyPenalty", Metric0Weight=1.0, Metric1Weight=100, RequiredRatioOfValidSamples=0.05]'
+  -o out/linc_coarse_bend100 --gpu 0
 
 python linc.py fetch --level 3      # the next level down, 1.78 GiB
 python stage3_linc.py --level 3 --out data/linc/pair3_bend    # the pair, through the stage-2 field
 python masks_linc.py data/linc/pair3_bend
 
 # stage 3: the same command, in tiles, masked and regularised, 8 min 27 s
-impact-reg-konfai register Generic_Rigid_BSpline \
+KONFAI_IMPACTREG_REPO=$PWD/presets impact-reg-konfai register LINC_BSPLINE_L3_TILED \
   -f data/linc/pair3_bend/Fixed.ome.zarr -m data/linc/pair3_bend/Moving.ome.zarr \
   --fixed-mask data/linc/pair3_bend/FixedMask.ome.zarr --moving-mask data/linc/pair3_bend/MovingMask.ome.zarr \
-  -o out/linc_tiled3_bend100 --gpu 0 \
-  --set "Predictor.Model.RegistrationNet.parameter_maps=[Parameters_BSpline.txt]" \
-  --set "Predictor.Model.RegistrationNet.final_grid_spacing=2.0" \
-  --set "Predictor.Model.RegistrationNet.max_iterations=200" \
-  --set "Predictor.Model.RegistrationNet.spatial_samples=4096" \
-  --set 'Predictor.Model.RegistrationNet.parameter_overrides=[Registration="MultiMetricMultiResolutionRegistration", Metric="AdvancedMattesMutualInformation" "TransformBendingEnergyPenalty", Metric0Weight=1.0, Metric1Weight=100, CheckNumberOfSamples="false"]' \
-  --set "Predictor.Dataset.Patch.patch_size=[256, 256, 256]" \
-  --set "Predictor.Dataset.Patch.overlap=12%" \
-  --set "Predictor.outputs_dataset.DisplacementField.OutputDataset.patch_combine=Cosinus"
+  -o out/linc_tiled3_bend100 --gpu 0
 ```
 
 On the level-4 grid at 0.32 mm. Mutual information is what the engine maximised; the correlation
@@ -150,18 +137,10 @@ python stage4_native_linc.py --size 768 \
 python masks_linc.py data/linc/pair0
 
 # 125 tiles of 256³, masked and regularised, 14 min 04 s
-impact-reg-konfai register Generic_Rigid_BSpline \
+KONFAI_IMPACTREG_REPO=$PWD/presets impact-reg-konfai register LINC_BSPLINE_L0_TILED \
   -f data/linc/pair0/Fixed.ome.zarr -m data/linc/pair0/Moving.ome.zarr \
   --fixed-mask data/linc/pair0/FixedMask.ome.zarr --moving-mask data/linc/pair0/MovingMask.ome.zarr \
-  -o out/linc_native_bend100 --gpu 0 \
-  --set "Predictor.Model.RegistrationNet.parameter_maps=[Parameters_BSpline.txt]" \
-  --set "Predictor.Model.RegistrationNet.final_grid_spacing=1.0" \
-  --set "Predictor.Model.RegistrationNet.max_iterations=200" \
-  --set "Predictor.Model.RegistrationNet.spatial_samples=4096" \
-  --set 'Predictor.Model.RegistrationNet.parameter_overrides=[Registration="MultiMetricMultiResolutionRegistration", Metric="AdvancedMattesMutualInformation" "TransformBendingEnergyPenalty", Metric0Weight=1.0, Metric1Weight=100, CheckNumberOfSamples="false"]' \
-  --set "Predictor.Dataset.Patch.patch_size=[256, 256, 256]" \
-  --set "Predictor.Dataset.Patch.overlap=128" \
-  --set "Predictor.outputs_dataset.DisplacementField.OutputDataset.patch_combine=Cosinus"
+  -o out/linc_native_bend100 --gpu 0
 
 python evaluate_linc.py native
 ```
@@ -238,15 +217,10 @@ python evaluate_linc.py brain                                    # FLASH at 0.24
 python stage1_linc.py --level 4 --moving data/linc/flash_brain_024.nii.gz --name flash
 python evaluate_linc.py pair --name flash
 python masks_linc.py data/linc/pair_flash
-impact-reg-konfai register Generic_Rigid_BSpline \
+KONFAI_IMPACTREG_REPO=$PWD/presets impact-reg-konfai register LINC_BSPLINE_L4 \
   -f data/linc/pair_flash/Fixed.ome.zarr -m data/linc/pair_flash/Moving.ome.zarr \
   --fixed-mask data/linc/pair_flash/FixedMask.ome.zarr --moving-mask data/linc/pair_flash/MovingMask.ome.zarr \
-  -o out/linc_flash_bend100 --gpu 0 \
-  --set "Predictor.Model.RegistrationNet.parameter_maps=[Parameters_BSpline.txt]" \
-  --set "Predictor.Model.RegistrationNet.final_grid_spacing=3.0" \
-  --set "Predictor.Model.RegistrationNet.max_iterations=600" \
-  --set "Predictor.Model.RegistrationNet.spatial_samples=8192" \
-  --set 'Predictor.Model.RegistrationNet.parameter_overrides=[Registration="MultiMetricMultiResolutionRegistration", Metric="AdvancedMattesMutualInformation" "TransformBendingEnergyPenalty", Metric0Weight=1.0, Metric1Weight=100, RequiredRatioOfValidSamples=0.05]'
+  -o out/linc_flash_bend100 --gpu 0
 python evaluate_linc.py dice --name flash --field out/linc_flash_bend100/P000/Transform.h5
 ```
 
@@ -390,12 +364,10 @@ scene. That placement is the start here.
 ```bash
 python zoom_linc.py rigid                                  # a rigid correction at 80 µm, 17 s
 python zoom_linc.py pair --level 1 --size 1024 1024 896    # 40 µm over the zoom, 3.5 GiB an image
-impact-reg-konfai register Generic_Rigid_BSpline \
+KONFAI_IMPACTREG_REPO=$PWD/presets impact-reg-konfai register LINC_BSPLINE_ZOOM1_TILED \
   -f data/linc/zoom1_pair1/Fixed.ome.zarr -m data/linc/zoom1_pair1/Moving.ome.zarr \
   --fixed-mask data/linc/zoom1_pair1/FixedMask.ome.zarr --moving-mask data/linc/zoom1_pair1/MovingMask.ome.zarr \
-  -o out/zoom1_level1_bend100 --gpu 0 \
-  --set "Predictor.Model.RegistrationNet.parameter_maps=[Parameters_BSpline.txt]" \
-  --set "Predictor.Dataset.Patch.patch_size=[256,256,256]" --set "Predictor.Dataset.Patch.overlap=128"   # + stage 4's bending overrides, grid 2.0
+  -o out/zoom1_level1_bend100 --gpu 0
 python zoom_linc.py check --field out/zoom1_level1_bend100/P000/Transform.h5
 python zoom_linc.py detail --centre 49.1 54.9 67.6 --field out/zoom1_level1_bend100/P000/Transform.h5
 ```
@@ -521,17 +493,11 @@ python stage2_plane.py --spacing 0.003 --window 23 11 6.1 \
   --moving-window data/dandi/cortex_r2d2 --out data/dandi/plane_native_r2d2
 python scripts/oct_native_masks.py plane_native_r2d2          # the tissue, from the OCT
 
-impact-reg-konfai register Generic_Rigid_BSpline \
+KONFAI_IMPACTREG_REPO=$PWD/presets impact-reg-konfai register SECTION_BSPLINE_NATIVE_TILED \
   -f data/dandi/plane_native_r2d2/Fixed.ome.zarr -m data/dandi/plane_native_r2d2/Moving.ome.zarr \
   --fixed-mask data/dandi/plane_native_r2d2/FixedMask.ome.zarr \
   --moving-mask data/dandi/plane_native_r2d2/MovingMask.ome.zarr \
-  -o out/native_tiled_r2d2_mi_b100_m --gpu 0 \
-  --set "Predictor.Model.RegistrationNet.parameter_maps=[Parameters_BSpline.txt]" \
-  --set "Predictor.Model.RegistrationNet.final_grid_spacing=0.3" \
-  --set "Predictor.Model.RegistrationNet.parameter_overrides=[Registration=\"MultiMetricMultiResolutionRegistration\", Metric=\"AdvancedMattesMutualInformation\" \"TransformBendingEnergyPenalty\", Metric0Weight=1.0, Metric1Weight=100, FinalGridSpacingInPhysicalUnits=0.3 0.3 1000, RequiredRatioOfValidSamples=0.05, CheckNumberOfSamples=\"false\"]" \
-  --set "Predictor.Dataset.Patch.patch_size=[8, 512, 512]" \
-  --set "Predictor.Dataset.Patch.overlap=12%" \
-  --set "Predictor.outputs_dataset.DisplacementField.OutputDataset.patch_combine=Cosinus"
+  -o out/native_tiled_r2d2_mi_b100_m --gpu 0
 ```
 
 `scripts/oct_native.sh RUN TAG` does the first two lines and `scripts/oct_native_tiles.sh TAG CONFIG...` the run.
@@ -594,10 +560,26 @@ there is the change everywhere else.
 | stage 2, the whole section, MIND + MI (kept) | 25 µm | 1 | 6 min | CPU |
 | stage 3, the native window, masked, bending 100 | 3 µm | 25 | about 4 min | GPU |
 | the known-deformation check, ConvexAdam | 3 µm | 25 | 3 min 29 s | 15.1 GB |
-| the same, FireANTs, 512² tiles | 3 µm | 25 | out of memory | > 24 GB |
 
-NVIDIA RTX PRO 5000, 24 GB. Engines differ in what they hold: FireANTs keeps its own pyramid on the
-card and does not fit a 512² tile where elastix sits at 1.9 GB. Halving the tile is one line.
+NVIDIA RTX PRO 5000, 24 GB (23.4 GiB usable).
+
+### Every engine on the level-3 hemisphere
+
+The whole level-3 hemisphere (947 × 947 × 1065 voxels, 1.78 GiB) in tiles, one engine at a time, fields only. Card
+memory is the run's own peak (nvidia-smi, per process); host memory is its peak resident set. Each engine takes the
+tile its memory allows, written in its preset's `Prediction.yml`.
+
+| engine | preset | tiles | time | card memory | host memory |
+|---|---|---|---|---|---|
+| elastix, MI + bending 100 | `LINC_BSPLINE_L3_TILED` | 125 × 256³ | 6 min 41 s | 16.5 GiB | 16.2 GiB |
+| ConvexAdam, MIND | `LINC_CONVEXADAM_L3_TILED` | 252 × 192³ | 24 min 57 s | 9.5 GiB | 21.1 GiB |
+| FireANTs, SyN + cross-correlation | `LINC_FIREANTS_L3_TILED` | 252 × 192³ | 2 h 14 min | 18.1 GiB | 15.3 GiB |
+
+The ConvexAdam and FireANTs runs need two fixes in impact-reg-konfai that are not yet released. ConvexAdam's
+progress observer and its fine-stage filter held each other, so every tile's filter and fields stayed in host
+memory; FireANTs' registration objects kept their CUDA tensors in reference cycles until Python's collector
+happened to run, so the card filled tile after tile. The fixes remove the observer after the stage and collect
+after each registration.
 
 ## Honest limits
 
@@ -640,34 +622,22 @@ Add `fireants` for the FireANTs presets. A GPU is not required, only faster.
 
 | file | what it does |
 |---|---|
-| `linc.py` | reads a pyramid level, or a window, of the 908 GiB XPCT store, plus the MRI maps |
-| `stage1_linc.py` | the 24-orientation screen, then the affine |
-| `stage3_linc.py` | builds the next level down, starting from the coarse field |
-| `masks_linc.py` | the masks a tiled deformable needs: the tissue, widened by 1 mm |
-| `stage4_native_linc.py` | one window of level 0, the moving image carried through every field so far |
-| `evaluate_linc.py` | the native window's score and seams, and the per-structure Dice |
-| `zoom_linc.py` | zoom 1 on the overview: the rigid correction, the tiled pair, the 20 µm check, the 4.3 µm detail |
-| `scripts/` | the run scripts, sweeps and diagnostics behind the tables: `*_try.sh` per stage, `diag*.py`, `disagreement_regions.py` (figures L12) |
-| `presets/LINC_MIND` | a local impact-reg preset: elastix B-spline with the IMPACT metric and MIND, used by `scripts/mind_try.sh` |
+| `linc/linc.py` | reads a pyramid level, or a window, of the 908 GiB XPCT store, plus the MRI maps |
+| `linc/masks_linc.py` | the masks a tiled deformable needs: the tissue, widened by 1 mm |
+| `linc/stage4_native_linc.py` | one window of level 0, the moving image carried through every field so far |
+| `linc/evaluate_linc.py` | the native window's score and seams, and the per-structure Dice |
+| `linc/zoom_linc.py` | zoom 1 on the overview: the rigid correction, the tiled pair, the 20 µm check, the 4.3 µm detail |
+| `linc/stage2_native.py` | cuts one native window of the section out of each store, through the affine and a coarse field |
+| `linc/stage3_pair.py` | builds the checkable pair: one known deformation |
+| `presets/LINC_BSPLINE_L4`, `presets/LINC_BSPLINE_L3_TILED`, `presets/LINC_BSPLINE_L0_TILED`, `presets/LINC_BSPLINE_ZOOM1_TILED` | the hemisphere's elastix runs, stages 2 to 5: every setting in the preset's parameter map and `Prediction.yml` |
+| `presets/SECTION_BSPLINE_NATIVE_TILED` | the section's stage 3, the 3 µm window in tiles |
+| `presets/LINC_FIREANTS_L3_TILED`, `presets/LINC_CONVEXADAM_L3_TILED` | FireANTs and ConvexAdam on the whole level-3 hemisphere in 192³ tiles: the APEX presets, with the tiling in `Prediction.yml` |
 | `presets/OCT_LIGHTSHEET_MIND` | the section's stage 2: MIND R2D2 + mutual information + bending 0.1, locked to the plane |
-| `presets/SECTION_MIND`, `presets/SECTION_MIND3D`, `presets/NATIVE_MIND` | the bases the loss sweeps copy and edit (2-D and 3-D MIND on the section, 2-D MIND on the 3 µm tiles) |
-| `scripts/oct_loss.sh`, `scripts/oct_score.py`, `figures_candidates.py` | the section's loss sweep, its score (folds, edges, MI) and the four-window sheets |
-| `scripts/oct_native.sh`, `scripts/oct_native_tiles.sh`, `scripts/oct_native_score.py` | stage 3 through a chosen stage-2 run: the native window (light-sheet box cached), the tiles with a given loss, and their score |
-| `figures_linc.py` | the figures of the LINC pair |
-| `video_linc.py` | the LINC video |
-| `dandi.py` | reads a coarse level, or a native window, from the public stores |
-| `stage1_coarse.py` | the global affine, mirror search included |
-| `stage2_plane.py` | builds the in-plane pair, at any grid, optionally through a coarse field |
-| `stage2_native.py` | cuts one native window out of each store, through the affine and a coarse field |
-| `stage3_pair.py` | builds the checkable pair: one known deformation |
-| `score.py` | the residual against the known field, and the seam check |
-| `figures.py` | the figures under `figures/` |
-| `video.py` | the video under `video/` |
-| `deck/index.html` | the deck: the short story, 13 plates, the LINC hemisphere then the OCT / light-sheet pair |
-| `deck/full.html` | the long deck, 27 plates, with the checks against the consortium and the technical choices |
-| `figures_demo.py`, `figures_motion.py`, `figures_landmarks.py`, `figures_morph.py`, `figures_zoomflicker.py`, `figures_pair.py` | the short deck's figures: the displacement maps, the four landmark crops with their locator, the affine-to-deformable morph, the zoom snapping onto the overview |
-| `figures_deep.py`, `figures_compare.py`, `figures_arrows.py`, `figures_grid.py` | other views of the same move, not in the deck: the deep-nuclei contours, both contours on one image and a two-frame flicker, arrows, a warped grid |
-| `video_linc.py --short` | the 63 s cut of the video for the short deck |
+| `presets/LINC_MIND`, `presets/SECTION_MIND`, `presets/SECTION_MIND3D`, `presets/NATIVE_MIND` | elastix with the IMPACT metric and MIND features, on the hemisphere, the section (2-D and 3-D) and the 3 µm tiles |
+| `presets/make_linc_presets.py` | writes the elastix presets above from the hub's `Generic_Rigid_BSpline`, and checks that elastix receives the same parameter map as from the original `--set` commands |
+
+The other scripts the commands name (`stage1_linc.py`, `stage3_linc.py`, `stage2_plane.py`, `score.py`, the figure
+scripts) are not in this repository.
 
 ### Stage 2 of the section, measured on the images (2026-09-14)
 

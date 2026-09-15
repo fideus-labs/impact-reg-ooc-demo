@@ -1,6 +1,6 @@
-"""APEX: store a registration's displacement field as an NGFF RFC-5 OME-Zarr (KonfAI's write_ome_zarr with
+"""APEX: store a registration's displacement field as OME-Zarr RFC-5 (KonfAI's write_ome_zarr with
 displacement_field=True, the geometry passed the way KonfAI's own dataset writer passes it), then read the store
-back and check it gives the same field and declares the RFC-5 `displacements` transformation.
+back and check it gives the same field and declares the OME-Zarr RFC-5 `displacements` transformation.
 
     python apex/dvf_to_rfc5.py TRANSFORM FIXED [STORE]   one transform: an impact-reg Transform.h5, or an elastix
                                                         TransformParameters.0-Composite.itk.txt sampled on FIXED's
@@ -38,7 +38,7 @@ def field_of(transform: Path, fixed: Path | None) -> sitk.Image:
 def axis_aligned(field: sitk.Image) -> sitk.Image:
     """The same field on an identity-direction grid.
 
-    RFC-5 places a field's array in space by scale and translation only, so KonfAI declares the `displacements`
+    OME-Zarr RFC-5 places a field's array in space by scale and translation only, so KonfAI declares the `displacements`
     transformation only for an axis-aligned grid; the pairs' grid has direction diag(-1, -1, 1). A grid whose direction
     is a signed permutation holds the same voxels re-indexed: nearest-neighbour resampling onto the aligned grid moves
     no value, which resampling back checks bit for bit. The vectors are physical and stay as they are.
@@ -71,7 +71,7 @@ def store(field: sitk.Image, path: Path) -> float:
     data, attributes = image_to_data(field)
     write_ome_zarr(path, data, spacing=attributes.get_np_array("Spacing"), origin=attributes.get_np_array("Origin"),
                    attributes=dict(attributes), displacement_field=True)
-    assert declares_displacements(path), f"{path}: no RFC-5 displacements transformation"
+    assert declares_displacements(path), f"{path}: no OME-Zarr RFC-5 displacements transformation"
     back = read_displacement_field(path)
     assert back.GetSize() == field.GetSize(), (back.GetSize(), field.GetSize())
     for get in ("GetSpacing", "GetOrigin", "GetDirection"):
@@ -105,7 +105,7 @@ def stream(transform: Path, path: Path, checked_slices: int = 3) -> float:
         for z0 in range(0, nz, step):
             z1 = min(nz, z0 + step)
             writer[:, z0:z1] = np.moveaxis(flat[z0 * plane:z1 * plane].reshape(z1 - z0, ny, nx, 3), -1, 0)
-        assert declares_displacements(path), f"{path}: no RFC-5 displacements transformation"
+        assert declares_displacements(path), f"{path}: no OME-Zarr RFC-5 displacements transformation"
         worst = 0.0
         for z in np.random.default_rng(0).choice(nz, size=min(checked_slices, nz), replace=False):
             expected = np.moveaxis(flat[z * plane:(z + 1) * plane].reshape(ny, nx, 3), -1, 0)
@@ -143,7 +143,7 @@ def selftest() -> None:
             raw = zarr.open_array(str(path / ms["datasets"][0]["path"]), mode="r")[:, index[2], index[1], index[0]]  # c, z, y, x on disk
             expected = np.array(field.GetPixel(1, 3, 2))[[{"x": 0, "y": 1, "z": 2}[a] for a in physical]]
             assert np.allclose(raw, expected), (raw, expected, physical)
-        print(f"selftest {direction}: exact round trip, RFC-5 displacements declared, components on disk in the physical axis order {' '.join(physical)}")
+        print(f"selftest {direction}: exact round trip, OME-Zarr RFC-5 displacements declared, components on disk in the physical axis order {' '.join(physical)}")
 
 
 if __name__ == "__main__":

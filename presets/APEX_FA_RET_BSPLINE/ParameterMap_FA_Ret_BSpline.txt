@@ -1,0 +1,50 @@
+// APEX CONNECTS competition, stage 2: DTI FA (moving) onto PS-OCT retardance (fixed), on a 0.4 mm grid,
+// after a stage-1 affine. B-spline driven by mutual information, held by a bending penalty, restricted by the
+// fixed tissue mask. Intensity only: no IMPACT feature model.
+
+// image types
+(FixedInternalImagePixelType "float")
+(MovingInternalImagePixelType "float")
+(UseDirectionCosines "true")
+
+// components
+(Registration "MultiMetricMultiResolutionRegistration")
+(FixedImagePyramid "FixedRecursiveImagePyramid")
+(MovingImagePyramid "MovingRecursiveImagePyramid")
+(Interpolator "BSplineInterpolator")
+(BSplineInterpolationOrder 1)
+(ResampleInterpolator "FinalBSplineInterpolator")
+(FinalBSplineInterpolationOrder 3)
+(Resampler "DefaultResampler")
+(Optimizer "AdaptiveStochasticGradientDescent")
+(Transform "BSplineTransform")
+(HowToCombineTransforms "Compose")
+
+// metric: mutual information, and the bending energy of the B-spline
+(Metric "AdvancedMattesMutualInformation" "TransformBendingEnergyPenalty")
+(Metric0Weight 1)
+(Metric1Weight 100)
+(NumberOfHistogramBins 32)
+
+// schedule
+(NumberOfResolutions 4)
+(FinalGridSpacingInPhysicalUnits 2.0)
+(MaximumNumberOfIterations 1000)
+
+// sampling
+(ImageSampler "Random")
+(NumberOfSpatialSamples 8192)
+(NewSamplesEveryIteration "true")
+(CheckNumberOfSamples "true")
+(RequiredRatioOfValidSamples 0.05)
+(ErodeMask "false")
+
+// output
+(DefaultPixelValue 0)
+(WriteResultImage "false")
+(ResultImageFormat "mha")
+(ITKTransformOutputFileNameExtension "itk.txt")
+(WriteITKCompositeTransform "true")
+(WriteTransformParametersEachIteration "false")
+(WriteTransformParametersEachResolution "false")
+(WriteIterationInfo "false")

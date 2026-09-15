@@ -1,0 +1,163 @@
+Predictor:
+  Model:
+    classpath: impact_reg_konfai.models.elastix:RegistrationNet
+    RegistrationNet:
+      engine: elastix
+      parameter_maps:
+      - ParameterMap_MRI_MRSeg.txt
+      outputs_criterions: None
+      max_iterations: 0
+      final_grid_spacing: 3.0
+      subset_features: 0
+      spatial_samples: 8192
+      parameter_overrides: []
+      resolutions:
+        '0':
+          max_iterations: 600
+          models:
+            '0':
+              ref: VBoussot/impact-torchscript-models:MIND/R1D2_3D.pt
+              voxel_size:
+              - 1.28
+              - 1.28
+              - 1.28
+              layers_mask: '1'
+              layers_weight:
+              - 1.0
+              subset_features: 32
+              pca: 0
+              distance: L1
+        '1':
+          max_iterations: 600
+          models:
+            '0':
+              ref: VBoussot/impact-torchscript-models:MIND/R1D2_3D.pt
+              voxel_size:
+              - 0.96
+              - 0.96
+              - 0.96
+              layers_mask: '1'
+              layers_weight:
+              - 1.0
+              subset_features: 32
+              pca: 0
+              distance: L1
+        '2':
+          max_iterations: 600
+          models:
+            '0':
+              ref: VBoussot/impact-torchscript-models:MIND/R1D2_3D.pt
+              voxel_size:
+              - 0.64
+              - 0.64
+              - 0.64
+              layers_mask: '1'
+              layers_weight:
+              - 1.0
+              subset_features: 32
+              pca: 0
+              distance: L1
+        '3':
+          max_iterations: 600
+          models:
+            '0':
+              ref: VBoussot/impact-torchscript-models:MIND/R1D2_3D.pt
+              voxel_size:
+              - 0.32
+              - 0.32
+              - 0.32
+              layers_mask: '1'
+              layers_weight:
+              - 1.0
+              subset_features: 32
+              pca: 0
+              distance: L1
+      mode: Static
+  Dataset:
+    groups_src:
+      Volume_0:
+        groups_dest:
+          Fixed:
+            transforms:
+              TensorCast:
+                dtype: float32
+                inverse: false
+            patch_transforms: None
+            is_input: true
+      Volume_1:
+        groups_dest:
+          Moving:
+            transforms:
+              TensorCast:
+                dtype: float32
+                inverse: false
+            patch_transforms: None
+            is_input: true
+      Volume_2:
+        groups_dest:
+          FixedMask:
+            transforms:
+              TensorCast:
+                dtype: float32
+                inverse: false
+            patch_transforms: None
+            is_input: true
+      Volume_3:
+        groups_dest:
+          MovingMask:
+            transforms:
+              TensorCast:
+                dtype: float32
+                inverse: false
+            patch_transforms: None
+            is_input: true
+    augmentations:
+      DataAugmentation_0:
+        data_augmentations:
+          Flip:
+            f_prob:
+            - 0
+            - 0.5
+            - 0.5
+            vector_field: true
+            prob: 1
+        nb: 2
+    Patch:
+      patch_size: None
+      overlap: None
+      pad_value: None
+      extend_slice: 0
+    subset: None
+    filter: None
+    dataset_filenames:
+    - ./Dataset/:mha
+    use_cache: false
+    batch_size: 1
+    num_workers: None
+    pin_memory: false
+    prefetch_factor: None
+    persistent_workers: None
+  outputs_dataset:
+    DisplacementField:
+      OutputDataset:
+        name_class: OutSameAsGroupDataset
+        before_reduction_transforms: None
+        after_reduction_transforms: None
+        final_transforms:
+          TensorCast:
+            dtype: float32
+            inverse: false
+        dataset_filename: Transform:itktransform
+        group: Transform
+        same_as_group: Volume_0:Fixed
+        patch_combine: None
+        inverse_transform: false
+        reduction: Mean
+        Mean: {}
+  train_name: ImpactReg-MR-CT-MRSeg
+  manual_seed: 42
+  gpu_checkpoints: None
+  images_log: None
+  combine: Mean
+  autocast: false
+  data_log: None
