@@ -140,6 +140,39 @@ as the fixed image and the FA through the affine as the moving one, with the ret
 fixed mask. The stores are in the frame the OME-Zarr metadata gives (identity direction), so a field from here is in
 that frame rather than in the `.mha` files' LPS frame of [docs/apex_results.md](docs/apex_results.md).
 
+## Run it on brainlife.io
+
+This repository is also a [brainlife.io](https://brainlife.io) App: `main` at the root, `config.json` in, the field and
+the moved image out. brainlife stages the inputs, writes `config.json` beside `main` from the form the user filled,
+runs `./main` on a GPU resource, and archives what appears in `transform/` and `moved/`.
+
+```
+inputs   fixed, moving                      neuro/ome-zarr   (data.ome.zarr, scalar z y x)
+         fixed_mask, moving_mask (optional) neuro/ome-zarr   (tissue masks; a tiled run needs them)
+config   preset (one of presets/), device (gpu | cpu), and, advanced: patch_size, overlap, tta,
+         fields_only, cpu_workers, extra_set (further --set overrides)
+outputs  transform/data.ome.zarr            neuro/ome-zarr   the field, OME-Zarr RFC-5 `displacements`, mm
+         transform/Transform.h5                              the same field as an ITK transform (3D Slicer)
+         moved/data.ome.zarr                neuro/ome-zarr   the moving image on the fixed grid
+         product.json                                        the run's summary, shown on the task page
+```
+
+`main` runs [`brainlife/run.py`](brainlife/run.py) inside `ghcr.io/fideus-labs/impact-reg-ooc-demo`, the image
+[`Dockerfile`](Dockerfile) builds from `pixi.lock` (both environments, the elastix-IMPACT binary and the feature models,
+so a compute node without internet access runs every preset); `run.py` picks the environment the preset needs, runs
+`impact-reg-konfai register` with `KONFAI_IMPACTREG_REPO=presets/`, and writes the field as OME-Zarr RFC-5 with
+`pipeline/transform_to_ome_zarr.py`, slab by slab above 2 GiB. Without singularity, `./main` falls back to this
+repository's pixi environments, so the App runs on a workstation too:
+
+```bash
+cp config.json.example config.json   # the four stores, the preset, the device
+./main                               # -> transform/, moved/, product.json
+```
+
+[`brainlife/app.json`](brainlife/app.json), written by [`brainlife/make_manifest.py`](brainlife/make_manifest.py) from
+the presets, is the registration form's content: inputs, outputs, and the parameters with the preset menu.
+[`brainlife/README.md`](brainlife/README.md) walks through registering the App and publishing the image.
+
 ## On the hackathon data
 
 **The LINC hemisphere** ([DANDI 001278](https://dandiarchive.org/dandiset/001278)): 908 GiB of synchrotron X-ray at
@@ -186,6 +219,8 @@ sets no criterion. The measures by image gradients, the method settings and the 
   and some scripts the write-up names are not included.
 - [`pixi.toml`](pixi.toml), [`pipeline/`](pipeline/): the environment and the tasks that run the competition pair from
   the NIfTI files, above.
+- [`main`](main), [`brainlife/`](brainlife/), [`Dockerfile`](Dockerfile), [`config.json.example`](config.json.example):
+  the brainlife.io App and its container, above.
 
 The input data and the registration outputs are not in this repository: the datasets are not ours to redistribute.
 The LINC hemisphere is public on DANDI and the scripts read it from there.

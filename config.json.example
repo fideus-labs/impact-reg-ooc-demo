@@ -1,0 +1,14 @@
+{
+    "fixed": "/path/to/fixed/data.ome.zarr",
+    "moving": "/path/to/moving/data.ome.zarr",
+    "fixed_mask": "/path/to/fixed-mask/data.ome.zarr",
+    "moving_mask": "/path/to/moving-mask/data.ome.zarr",
+    "preset": "APEX_FIREANTS_SYN_CC",
+    "device": "gpu",
+    "patch_size": "",
+    "overlap": "",
+    "tta": 0,
+    "fields_only": false,
+    "cpu_workers": 0,
+    "extra_set": ""
+}

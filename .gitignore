@@ -11,3 +11,10 @@ out/
 __pycache__/
 .venv/
 .pixi/
+
+# a brainlife.io run (./main): brainlife writes config.json, the App writes the rest
+config.json
+product.json
+work/
+transform/
+moved/

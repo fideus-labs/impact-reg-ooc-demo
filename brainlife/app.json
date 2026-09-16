@@ -1,0 +1,272 @@
+{
+  "name": "Out-of-core multimodal registration (KonfAI + IMPACT)",
+  "github": "fideus-labs/impact-reg-ooc-demo",
+  "github_branch": "main",
+  "desc": "Deformable registration of a pre-aligned pair of OME-Zarr volumes, in tiles when the volumes do not fit in GPU memory: FireANTs SyN, ConvexAdam or elastix B-spline, driven by intensity, MIND or IMPACT (TotalSegmentator) features. Writes the displacement field as OME-Zarr RFC-5 (and as an ITK .h5 transform for 3D Slicer) and the moving image resampled onto the fixed grid. KonfAI + impact-reg-konfai; presets from the APEX BRAIN CONNECTS and LINC hemisphere work.",
+  "desc_override": "Out-of-core deformable registration of OME-Zarr volumes (FireANTs / ConvexAdam / elastix, IMPACT features)",
+  "tags": [
+    "registration",
+    "ome-zarr",
+    "microscopy",
+    "multimodal",
+    "gpu",
+    "out-of-core"
+  ],
+  "requires_gpu": true,
+  "retry": 0,
+  "inputs": [
+    {
+      "id": "fixed",
+      "datatype": "neuro/ome-zarr",
+      "datatype_id": "6a99e5d7d90f157078ed790c",
+      "datatype_tags": [],
+      "desc": "The fixed image: the grid the field and the moved image are written on. A scalar OME-Zarr volume (z, y, x; a size-1 c/t axis is squeezed).",
+      "optional": false,
+      "multi": false,
+      "advanced": false
+    },
+    {
+      "id": "moving",
+      "datatype": "neuro/ome-zarr",
+      "datatype_id": "6a99e5d7d90f157078ed790c",
+      "datatype_tags": [],
+      "desc": "The moving image, already affine-aligned to the fixed image (the presets hold the affine at identity).",
+      "optional": false,
+      "multi": false,
+      "advanced": false
+    },
+    {
+      "id": "fixed_mask",
+      "datatype": "neuro/ome-zarr",
+      "datatype_id": "6a99e5d7d90f157078ed790c",
+      "datatype_tags": [
+        "mask"
+      ],
+      "desc": "Tissue mask on the fixed grid (0/1). Optional for a whole-volume run; needed for a tiled one, where a tile of background otherwise fits the background.",
+      "optional": true,
+      "multi": false,
+      "advanced": false
+    },
+    {
+      "id": "moving_mask",
+      "datatype": "neuro/ome-zarr",
+      "datatype_id": "6a99e5d7d90f157078ed790c",
+      "datatype_tags": [
+        "mask"
+      ],
+      "desc": "Tissue mask on the moving grid (0/1). Optional; see fixed_mask.",
+      "optional": true,
+      "multi": false,
+      "advanced": false
+    }
+  ],
+  "outputs": [
+    {
+      "id": "transform",
+      "datatype": "neuro/ome-zarr",
+      "datatype_id": "6a99e5d7d90f157078ed790c",
+      "datatype_tags": [
+        "displacement_field"
+      ],
+      "archive": true,
+      "output_on_root": false,
+      "desc": "The displacement field on the fixed grid, mm, as an OME-Zarr RFC-5 `displacements` coordinate transformation (data.ome.zarr) and as an ITK transform (Transform.h5, opens in 3D Slicer)."
+    },
+    {
+      "id": "moved",
+      "datatype": "neuro/ome-zarr",
+      "datatype_id": "6a99e5d7d90f157078ed790c",
+      "datatype_tags": [
+        "registered"
+      ],
+      "archive": true,
+      "output_on_root": false,
+      "desc": "The moving image resampled through the field onto the fixed grid (not written when fields_only is set)."
+    }
+  ],
+  "config": {
+    "fixed": {
+      "type": "input",
+      "input_id": "fixed",
+      "file_id": "zarr"
+    },
+    "moving": {
+      "type": "input",
+      "input_id": "moving",
+      "file_id": "zarr"
+    },
+    "fixed_mask": {
+      "type": "input",
+      "input_id": "fixed_mask",
+      "file_id": "zarr"
+    },
+    "moving_mask": {
+      "type": "input",
+      "input_id": "moving_mask",
+      "file_id": "zarr"
+    },
+    "preset": {
+      "id": "preset",
+      "type": "enum",
+      "default": "APEX_FIREANTS_SYN_CC",
+      "placeholder": "",
+      "desc": "The registration preset (presets/<name> in the repository): the engine, the metric and its features, the resolution it was tuned for, and whether it tiles.",
+      "options": [
+        {
+          "value": "APEX_CONVEXADAM_MIND",
+          "label": "APEX_CONVEXADAM_MIND (ConvexAdam)",
+          "desc": "ConvexAdam on the affine-aligned 0.4 mm pair: 3-D MIND R2D2 at 0.8 mm, L1, grid 2 feature voxels, grid shrink 2, no linear stage."
+        },
+        {
+          "value": "APEX_FA_RET_BSPLINE",
+          "label": "APEX_FA_RET_BSPLINE (elastix)",
+          "desc": "Intensity-only elastix B-spline on a 0.4 mm grid after an affine: Mattes MI, bending energy 100, fixed tissue mask"
+        },
+        {
+          "value": "APEX_FIREANTS_SYN_CC",
+          "label": "APEX_FIREANTS_SYN_CC (FireANTs)",
+          "desc": "FireANTs SyN on the affine-aligned 0.4 mm pair: local cross-correlation, affine held at identity, warp and gradient smoothing 1.0 and 1.5 voxels."
+        },
+        {
+          "value": "APEX_FIREANTS_TS",
+          "label": "APEX_FIREANTS_TS (FireANTs)",
+          "desc": "FireANTs SyN on the affine-aligned 0.4 mm pair, driven by IMPACT on TotalSegmentator features (the preset's own TS model), affine held at identity, smoothing 1.0 and 1.5 voxels."
+        },
+        {
+          "value": "LINC_BSPLINE_L0_TILED",
+          "label": "LINC_BSPLINE_L0_TILED (elastix)",
+          "desc": "elastix B-spline, Mattes MI + bending energy (weight 100): a window of level 0 (20 µm) in 256³ tiles: stage 4."
+        },
+        {
+          "value": "LINC_BSPLINE_L3_TILED",
+          "label": "LINC_BSPLINE_L3_TILED (elastix)",
+          "desc": "elastix B-spline, Mattes MI + bending energy (weight 100): level 3 (0.16 mm) in 256³ tiles: stage 3."
+        },
+        {
+          "value": "LINC_BSPLINE_L4",
+          "label": "LINC_BSPLINE_L4 (elastix)",
+          "desc": "elastix B-spline, Mattes MI + bending energy (weight 100): the whole hemisphere at level 4 (0.32 mm): stage 2 and the FLASH check."
+        },
+        {
+          "value": "LINC_BSPLINE_ZOOM1_TILED",
+          "label": "LINC_BSPLINE_ZOOM1_TILED (elastix)",
+          "desc": "elastix B-spline, Mattes MI + bending energy (weight 100): zoom 1 on the overview at level 1 (40 µm) in 256³ tiles: stage 5."
+        },
+        {
+          "value": "LINC_CONVEXADAM_L3_TILED",
+          "label": "LINC_CONVEXADAM_L3_TILED (ConvexAdam)",
+          "desc": "ConvexAdam on MIND features: level 3 (0.16 mm) in 192³ tiles, with APEX_CONVEXADAM_MIND's settings."
+        },
+        {
+          "value": "LINC_FIREANTS_L3_TILED",
+          "label": "LINC_FIREANTS_L3_TILED (FireANTs)",
+          "desc": "FireANTs SyN, cross-correlation: level 3 (0.16 mm) in 192³ tiles, with APEX_FIREANTS_SYN_CC's settings."
+        },
+        {
+          "value": "LINC_MIND",
+          "label": "LINC_MIND (elastix)",
+          "desc": "MIND (R1D2, L1) through the IMPACT metric, with mutual information and a bending penalty weighted by parameter_overrides"
+        },
+        {
+          "value": "NATIVE_MIND",
+          "label": "NATIVE_MIND (elastix)",
+          "desc": "MIND R1D2 2-D through the IMPACT metric, in plane, with mutual information; weights and the z lock via parameter_overrides"
+        },
+        {
+          "value": "OCT_LIGHTSHEET_MIND",
+          "label": "OCT_LIGHTSHEET_MIND (elastix)",
+          "desc": "2-D MIND (R2D2) through the IMPACT metric, plus mutual information and a light bending penalty; the B-spline has no freedom in z"
+        },
+        {
+          "value": "SECTION_BSPLINE_NATIVE_TILED",
+          "label": "SECTION_BSPLINE_NATIVE_TILED (elastix)",
+          "desc": "elastix B-spline, Mattes MI + bending energy (weight 100): the section's 3 µm window in [8, 512, 512] tiles: section stage 3."
+        },
+        {
+          "value": "SECTION_MIND",
+          "label": "SECTION_MIND (elastix)",
+          "desc": "MIND R1D2 2-D through the IMPACT metric, in plane, with mutual information; weights and the z lock via parameter_overrides"
+        },
+        {
+          "value": "SECTION_MIND3D",
+          "label": "SECTION_MIND3D (elastix)",
+          "desc": "MIND R1D2 2-D through the IMPACT metric, in plane, with mutual information; weights and the z lock via parameter_overrides"
+        }
+      ]
+    },
+    "device": {
+      "id": "device",
+      "type": "enum",
+      "default": "gpu",
+      "placeholder": "",
+      "desc": "Where the preset runs. The GPU is the intended device (a 256³ elastix tile peaks near 16.5 GiB, a 192³ FireANTs tile near 18 GiB); the CPU is a fallback for small pairs.",
+      "options": [
+        {
+          "value": "gpu",
+          "label": "GPU",
+          "desc": "CUDA device 0 of the allocation"
+        },
+        {
+          "value": "cpu",
+          "label": "CPU",
+          "desc": "cpu_workers threads (default: the job's cores)"
+        }
+      ]
+    },
+    "patch_size": {
+      "id": "patch_size",
+      "type": "string",
+      "default": "",
+      "placeholder": "256 256 256",
+      "desc": "Tile size in voxels (z y x, or one number for a cube). Empty: the preset's own setting (the whole volume for the APEX presets, tiles for the *_TILED ones). Tiles need both masks.",
+      "advanced": true
+    },
+    "overlap": {
+      "id": "overlap",
+      "type": "string",
+      "default": "",
+      "placeholder": "12%",
+      "desc": "Overlap between neighbouring tiles, as a percentage of the tile ('12%') or in voxels ('16'). Empty: the preset's own, or 12% when patch_size is set.",
+      "advanced": true
+    },
+    "tta": {
+      "id": "tta",
+      "type": "number",
+      "default": 0,
+      "placeholder": "0",
+      "desc": "Test-time augmentation passes (0: none).",
+      "advanced": true
+    },
+    "fields_only": {
+      "id": "fields_only",
+      "type": "boolean",
+      "default": false,
+      "placeholder": "",
+      "desc": "Write the displacement field only; skip resampling the moving image (saves the time and disk of a second volume; brainlife then reports the moved output as missing).",
+      "advanced": true
+    },
+    "cpu_workers": {
+      "id": "cpu_workers",
+      "type": "number",
+      "default": 0,
+      "placeholder": "0",
+      "desc": "Threads for a CPU run (0: the cores the scheduler allotted).",
+      "advanced": true
+    },
+    "extra_set": {
+      "id": "extra_set",
+      "type": "string",
+      "default": "",
+      "placeholder": "Predictor.Dataset.Patch.overlap=16%; Predictor.outputs_dataset.DisplacementField.OutputDataset.patch_combine=Cosinus",
+      "desc": "Further `impact-reg-konfai register --set NAME=VALUE` overrides of the preset's Prediction.yml, ';'-separated (a bare NAME targets the model's parameters; a dotted path any existing key).",
+      "advanced": true
+    }
+  },
+  "citation": {
+    "app": "https://github.com/fideus-labs/impact-reg-ooc-demo",
+    "konfai": "https://github.com/fideus-labs/KonfAI",
+    "impact_reg_konfai": "https://pypi.org/project/impact-reg-konfai/",
+    "impact": "Boussot et al., IMPACT: a generic semantic loss for multimodal medical image registration, https://github.com/vboussot/ImpactLoss",
+    "brainlife": "Hayashi et al. 2023, brainlife.io: a decentralized and open-source cloud platform to support neuroscience research, https://www.ncbi.nlm.nih.gov/pmc/articles/PMC10274934/"
+  }
+}

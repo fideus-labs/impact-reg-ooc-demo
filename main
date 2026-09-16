@@ -1,0 +1,56 @@
+#!/bin/bash
+#SBATCH --job-name=impact-reg-ooc
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=8
+#SBATCH --mem=48G
+#SBATCH --gres=gpu:1
+#SBATCH --time=04:00:00
+#PBS -l nodes=1:ppn=8:gpus=1,walltime=04:00:00
+#PBS -l vmem=48gb
+#PBS -N impact-reg-ooc
+#PBS -V
+
+# brainlife.io entrypoint. brainlife clones this repository into a scratch directory, writes config.json
+# beside this file and runs ./main. Everything else (parsing config.json, choosing the pixi environment
+# for the preset, running impact-reg-konfai, writing the outputs) is brainlife/run.py, which runs inside
+# the container below; the container holds the whole pixi stack (torch, KonfAI, impact-reg-konfai,
+# FireANTs, ITKIMPACT, ngff-zarr) and the elastix-IMPACT binary, so the compute node needs only
+# singularity/apptainer and an NVIDIA driver.
+#
+# Outside brainlife: copy config.json.example to config.json, point it at your OME-Zarr stores and run
+# ./main. Without singularity it falls back to the pixi environments of this repository (pixi install).
+set -euo pipefail
+cd "$(dirname "$0")"
+
+[ -f config.json ] || { echo "config.json not found: brainlife writes it at runtime; locally, copy config.json.example" >&2; exit 1; }
+
+# The container. Built from ./Dockerfile by .github/workflows/container.yml; override for a local build.
+IMAGE=${IMPACT_REG_OOC_IMAGE:-docker://ghcr.io/fideus-labs/impact-reg-ooc-demo:1.0.0}
+RUN=(bash /opt/impact-reg-ooc-demo/env/default.sh python3 brainlife/run.py)
+
+rm -rf transform moved product.json
+container=""
+if command -v singularity >/dev/null 2>&1; then container=singularity; fi
+if command -v apptainer >/dev/null 2>&1; then container=apptainer; fi
+
+if [ -n "$container" ]; then
+    # -e: a clean environment, so the host's python/CUDA modules never leak into the container's stack.
+    # --nv: the host driver, only where there is one (a CPU node prints warnings and continues).
+    # The scheduler's GPU allocation survives the clean environment through SINGULARITYENV_/APPTAINERENV_.
+    nv=()
+    if command -v nvidia-smi >/dev/null 2>&1 && nvidia-smi -L >/dev/null 2>&1; then nv=(--nv); fi
+    export SINGULARITYENV_CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES-}" APPTAINERENV_CUDA_VISIBLE_DEVICES="${CUDA_VISIBLE_DEVICES-}"
+    export SINGULARITYENV_SLURM_CPUS_PER_TASK="${SLURM_CPUS_PER_TASK-}" APPTAINERENV_SLURM_CPUS_PER_TASK="${SLURM_CPUS_PER_TASK-}"
+    export SINGULARITYENV_LC_ALL=C.UTF-8 APPTAINERENV_LC_ALL=C.UTF-8
+    time "$container" exec -e "${nv[@]}" --pwd "$PWD" "$IMAGE" "${RUN[@]}"
+else
+    echo "no singularity/apptainer: running with this repository's pixi environments" >&2
+    time pixi run --manifest-path pixi.toml -e default python3 brainlife/run.py
+fi
+
+# The datatype needs the store root; a missing output is a failed run, whatever the exit code said
+# (run.py checks the moved image itself, since fields_only skips it).
+[ -f transform/data.ome.zarr/zarr.json ] || { echo "transform/data.ome.zarr was not written" >&2; exit 1; }
+[ -f product.json ] || { echo "product.json was not written" >&2; exit 1; }
+echo "done: $(ls -d transform/* moved/* 2>/dev/null | tr '\n' ' ')"
