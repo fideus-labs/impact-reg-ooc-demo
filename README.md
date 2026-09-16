@@ -85,15 +85,17 @@ Predictor:
 A tiled run needs masks: a tile that holds only background otherwise fits the background.
 [`linc/masks_linc.py`](linc/masks_linc.py) writes the tissue, widened by 1 mm.
 
-The field is `out/P000/Transform.h5`. To store it as OME-Zarr RFC-5 and read it back:
+The field is `out/<subject>/<preset>/P000/Transform.h5`, and `pixi run register` writes it as OME-Zarr RFC-5 beside
+it. By hand, and for a field too large to hold in memory:
 
 ```bash
-python apex/dvf_to_rfc5.py --stream out/P000/Transform.h5 out/P000/DVF.ome.zarr
+python pipeline/transform_to_ome_zarr.py out/<subject>/<preset>/P000/Transform.h5 out/<subject>/pair/Fixed.ome.zarr
+python pipeline/transform_to_ome_zarr.py --stream Transform.h5 Transform.ome.zarr   # slab by slab
 ```
 
 ```python
 import zarr
-field = zarr.open_group("out/P000/DVF.ome.zarr", mode="r")["scale0"]["image"]   # (3, z, y, x), mm, components z, y, x
+field = zarr.open_group("out/<subject>/<preset>/P000/Transform.ome.zarr", mode="r")["scale0"]["image"]   # (3, z, y, x), mm, components z, y, x
 ```
 
 The LINC elastix runs were first launched as the hub preset `Generic_Rigid_BSpline` with `--set` overrides.
@@ -116,9 +118,12 @@ pixi run register-all                     # elastix, FireANTs and ConvexAdam on 
 Each task runs what it depends on: `register` prepares the pair, `prepare` converts the inputs. `register` takes a
 preset name, a subject and the device (`--gpu 0` by default, `'--cpu 8'` for eight CPU workers);
 `register-fireants`, `register-impact`, `register-convexadam` and `register-elastix` are the same with the preset
-filled in. `pixi task list` shows them all. The presets come from the
-[VBoussot/ImpactReg](https://huggingface.co/VBoussot/ImpactReg) Hugging Face repository on first use, and the
-elastix binary from its GitHub release. A run leaves three things under `out/<subject>/<preset>/P000/`:
+filled in. `pixi task list` shows them all. The presets are [`presets/`](presets/) in this repository, the ones
+behind the table below; their feature models come from the
+[VBoussot/impact-torchscript-models](https://huggingface.co/VBoussot/impact-torchscript-models) Hugging Face repository
+on first use, and the elastix binary from its GitHub release. `pixi run score subject_v` then measures every run of a
+subject on its pair grid: tissue Dice, mutual information, the residual shift by mutual information and by gradients,
+the folding and the field's size. A run leaves three things under `out/<subject>/<preset>/P000/`:
 `Transform.ome.zarr`, the displacement field as an NGFF 0.6rc0 store with the OME-Zarr RFC-5 `displacements` transformation
 (the form [docs/apex_results.md](docs/apex_results.md) describes; the register task writes it from the preset's own
 `Transform.h5`, which stays beside it for 3D Slicer), and `Moved.ome.zarr`, the FA moved onto the retardance grid.
@@ -177,8 +182,8 @@ sets no criterion. The measures by image gradients, the method settings and the 
 - [`presets/`](presets/): the presets behind every result, with their `Prediction.yml` and parameter maps.
 - [`docs/linc_demo.md`](docs/linc_demo.md): the LINC write-up, every stage with its command, cost and checks.
 - [`docs/apex_results.md`](docs/apex_results.md): the competition pair's grids, methods, measures and file formats.
-- [`linc/`](linc/), [`apex/`](apex/): the scripts the results come from. They keep the absolute paths of the
-  workstation they ran on, and some scripts the LINC write-up names are not included.
+- [`linc/`](linc/): the LINC scripts the write-up runs. They keep the absolute paths of the workstation they ran on,
+  and some scripts the write-up names are not included.
 - [`pixi.toml`](pixi.toml), [`pipeline/`](pipeline/): the environment and the tasks that run the competition pair from
   the NIfTI files, above.
 

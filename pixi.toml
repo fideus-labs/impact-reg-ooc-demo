@@ -55,50 +55,61 @@ depends-on = ["convert"]
 description = "Stage 1 (orientation, affine) and the 0.4 mm pair of one subject as OME-Zarr stores under out/<subject>/pair/"
 
 [tasks.register]
+# The presets are this repository's own (presets/, every setting in the files); the feature models and the elastix
+# binary are still fetched on first use. KONFAI_IMPACTREG_REPO replaces the Hugging Face repository presets come from,
+# so it is set here rather than for the whole workspace.
 # The preset writes its displacement field as an ITK transform file (Transform.h5) and impact-reg-konfai the moved
-# image as OME-Zarr; the second command writes the field as Transform.ome.zarr beside it, NGFF 0.6rc0 with the RFC-5
-# `displacements` transformation.
+# image as OME-Zarr; the second command writes the field as Transform.ome.zarr beside it, NGFF 0.6rc0 with the
+# OME-Zarr RFC-5 `displacements` transformation.
 cmd = """impact-reg-konfai register {{ preset }} \
   -f out/{{ subject }}/pair/Fixed.ome.zarr -m out/{{ subject }}/pair/Moving.ome.zarr \
   --fixed-mask out/{{ subject }}/pair/FixedMask.ome.zarr --moving-mask out/{{ subject }}/pair/MovingMask.ome.zarr \
   -o out/{{ subject }}/{{ preset }} {{ device }} \
   && python pipeline/transform_to_ome_zarr.py out/{{ subject }}/{{ preset }}/P000/Transform.h5 out/{{ subject }}/pair/Fixed.ome.zarr"""
 args = [
-  { arg = "preset", default = "FireANTs_SyN" },
+  { arg = "preset", default = "APEX_FIREANTS_SYN_CC" },
   { arg = "subject", default = "subject_v" },
   { arg = "device", default = "--gpu 0" },
 ]
+env = { KONFAI_IMPACTREG_REPO = "$PIXI_PROJECT_ROOT/presets" }
 depends-on = [{ task = "prepare", args = ["{{ subject }}"] }]
-description = "One preset on one subject's pair: pixi run register <preset> <subject> [<device>], e.g. register FireANTs_SyN subject_m '--cpu 8' (an elastix preset needs the elastix environment: pixi run -e elastix register ...)"
+description = "One preset on one subject's pair: pixi run register <preset> <subject> [<device>], e.g. register APEX_FIREANTS_SYN_CC subject_m '--cpu 8' (an elastix preset needs the elastix environment: pixi run -e elastix register ...)"
 
 [tasks.register-fireants]
-depends-on = [{ task = "register", args = ["FireANTs_SyN", "{{ subject }}", "{{ device }}"] }]
+depends-on = [{ task = "register", args = ["APEX_FIREANTS_SYN_CC", "{{ subject }}", "{{ device }}"] }]
 args = [{ arg = "subject", default = "subject_v" }, { arg = "device", default = "--gpu 0" }]
 description = "FireANTs: symmetric diffeomorphic SyN on the GPU"
 
 [tasks.register-impact]
-depends-on = [{ task = "register", args = ["FireANTs_IMPACT", "{{ subject }}", "{{ device }}"] }]
+depends-on = [{ task = "register", args = ["APEX_FIREANTS_TS", "{{ subject }}", "{{ device }}"] }]
 args = [{ arg = "subject", default = "subject_v" }, { arg = "device", default = "--gpu 0" }]
-description = "FireANTs SyN with the IMPACT loss: segmentation-model features instead of intensities"
+description = "FireANTs SyN with the IMPACT loss: TotalSegmentator features instead of intensities"
 
 [tasks.register-convexadam]
-depends-on = [{ task = "register", args = ["ConvexAdam_Composite", "{{ subject }}", "{{ device }}"] }]
+depends-on = [{ task = "register", args = ["APEX_CONVEXADAM_MIND", "{{ subject }}", "{{ device }}"] }]
 args = [{ arg = "subject", default = "subject_v" }, { arg = "device", default = "--gpu 0" }]
 description = "ConvexAdam on MIND features"
 
 [tasks.register-elastix]
 # The same `register`, in the elastix environment (its torch 2.8 is the LibTorch the elastix binary links).
-cmd = "pixi run -e elastix register Generic_Rigid_BSpline {{ subject }} '{{ device }}'"
+cmd = "pixi run -e elastix register APEX_FA_RET_BSPLINE {{ subject }} '{{ device }}'"
 args = [{ arg = "subject", default = "subject_v" }, { arg = "device", default = "--gpu 0" }]
-description = "elastix: rigid then B-spline, mutual information (in the elastix environment)"
+description = "elastix: B-spline, Mattes mutual information + bending energy (in the elastix environment)"
 
 [tasks.register-all]
 depends-on = [
   { task = "register-elastix", args = ["subject_v"] },
-  { task = "register", args = ["FireANTs_SyN", "subject_v"] },
-  { task = "register", args = ["ConvexAdam_Composite", "subject_v"] },
+  { task = "register", args = ["APEX_FIREANTS_SYN_CC", "subject_v"] },
+  { task = "register", args = ["APEX_FIREANTS_TS", "subject_v"] },
+  { task = "register", args = ["APEX_CONVEXADAM_MIND", "subject_v"] },
   { task = "register-elastix", args = ["subject_m"] },
-  { task = "register", args = ["FireANTs_SyN", "subject_m"] },
-  { task = "register", args = ["ConvexAdam_Composite", "subject_m"] },
+  { task = "register", args = ["APEX_FIREANTS_SYN_CC", "subject_m"] },
+  { task = "register", args = ["APEX_FIREANTS_TS", "subject_m"] },
+  { task = "register", args = ["APEX_CONVEXADAM_MIND", "subject_m"] },
 ]
-description = "The three engines on both subjects, on GPU 0"
+description = "Every engine and loss of the published table, on both subjects, on GPU 0"
+
+[tasks.score]
+cmd = "python pipeline/score_pair.py {{ subject }}"
+args = [{ arg = "subject", default = "subject_v" }]
+description = "Every run of one subject on its pair grid: tissue Dice, mutual information, residual shift by MI and by gradients, folding and the field's size"

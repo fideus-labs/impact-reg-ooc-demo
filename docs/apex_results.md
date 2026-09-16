@@ -35,6 +35,9 @@ The registration grid is 123 × 175 × 113 voxels for subject_v and 150 × 164 �
 
 ### Stage 1
 
+The pixi line builds the same pair from the NIfTI files with `pipeline/prepare_pair.py`, in the OME-Zarr stores'
+own frame; the stores described here came from the same method on `.mha` files, in their LPS frame.
+
 1. The 48 axis permutations and flips of the FA are scored by mutual information at 1.6 mm.
 2. The best three are refined by an affine (Mattes MI, 0.8 then 0.4 mm), and the best refined one is kept.
 
