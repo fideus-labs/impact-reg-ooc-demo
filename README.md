@@ -114,6 +114,8 @@ pixi run prepare subject_v                # stage 1 (orientation, affine) and th
 pixi run register FireANTs_SyN subject_v  # one preset on the pair -> out/subject_v/FireANTs_SyN/P000/
 pixi run register-all                     # elastix, FireANTs and ConvexAdam on both subjects
 pixi run upload                           # every store of both subjects to the public bucket (FILEBASE_KEY, FILEBASE_SECRET)
+pixi run nifti-all                        # every run as the competition's NIfTI pairs, in the organisers' layout under competition/
+pixi run view dmri-in-psoct outline V 2   # the organisers' FSLeyes view of one method on one subject
 ```
 
 Each task runs what it depends on: `register` prepares the pair, `prepare` converts the inputs. `register` takes a
@@ -140,6 +142,39 @@ the FA scored by mutual information at 1.6 mm, the best three refined by an affi
 as the fixed image and the FA through the affine as the moving one, with the retardance tissue widened by 1 mm as the
 fixed mask. The stores are in the frame the OME-Zarr metadata gives (identity direction), so a field from here is in
 that frame rather than in the `.mha` files' LPS frame of [docs/apex_results.md](docs/apex_results.md).
+
+## The competition's result files, in FSLeyes
+
+The organisers assess a team's results from a folder of NIfTI files: `Data/Subject_<X>/PSOCT.nii.gz` and
+`DMRI.nii.gz`, the two inputs, and `Team_<T>_method_<n>/Subject_<X>/DMRI_to_PSOCT.nii.gz` and `PSOCT_to_DMRI.nii.gz`,
+each modality carried into the other's space. `pixi run nifti <preset> <subject>` writes that pair for one run, as
+Team C, under `competition/`, and `pixi run nifti-all` every run of the table above, one method number per row:
+
+| method | preset | engine and loss |
+|---|---|---|
+| `Team_C_method_1` | `APEX_FA_RET_BSPLINE` | elastix, MI + bending energy |
+| `Team_C_method_2` | `APEX_FIREANTS_SYN_CC` | FireANTs, SyN + cross-correlation |
+| `Team_C_method_3` | `APEX_FIREANTS_TS` | FireANTs, SyN + IMPACT (TotalSegmentator features) |
+| `Team_C_method_4` | `APEX_CONVEXADAM_MIND` | ConvexAdam, MIND |
+
+`DMRI_to_PSOCT.nii.gz` is the FA on the retardance's own grid, with its header, through the stage-1 affine and the
+run's field, so it overlays `PSOCT.nii.gz` as it is. `PSOCT_to_DMRI.nii.gz` is the retardance on the FA's grid,
+through their inverses: the field's is computed by fixed-point iteration in
+[`pipeline/competition_results.py`](pipeline/competition_results.py), which composes it with the field on the tissue
+and prints the residual. At the 99th percentile it is within 0.02 mm for FireANTs and 0.16 mm for elastix;
+ConvexAdam's field folds and has no inverse on 14 to 16 % of the tissue. Each method's folder gets a README with the
+method and those numbers. The retardance is smoothed for the 0.4 mm grid first, as the pair's fixed image was;
+intensities are the inputs' own, so the organisers' display ranges apply. `Data/` links the inputs from
+`data/input/`; the organisers' Drive folder already holds them, so the `Team_C_method_<n>` folders are what goes up.
+
+`pixi run view <psoct-in-dmri|dmri-in-psoct> <grey|outline> <M|V> <method>` runs the organisers' own FSLeyes
+command for that view, as their document gives it, in an environment of its own (`fsleyes`): the carried image over
+the subject's input, both in greyscale or the carried tissue as a red outline, with the display ranges they set for
+each subject. `pixi run render ...` writes the same view to `competition/renders/` without a window (behind
+`xvfb-run` on a machine without a display). Below, method 2 on subject_v as the organisers see it: the FA's tissue,
+carried into the retardance's space, outlined over the retardance.
+
+![subject_v in FSLeyes: the FA tissue's outline over the retardance](figures/fsleyes_subject_v_dmri_in_psoct.png)
 
 ## On the hackathon data
 
@@ -230,8 +265,8 @@ s5cmd --no-sign-request --endpoint-url https://s3.filebase.io cp 's3://impact-re
 - [`docs/apex_results.md`](docs/apex_results.md): the competition pair's grids, methods, measures and file formats.
 - [`linc/`](linc/): the LINC scripts the write-up runs. They keep the absolute paths of the workstation they ran on,
   and some scripts the write-up names are not included.
-- [`pixi.toml`](pixi.toml), [`pipeline/`](pipeline/): the environment and the tasks that run the competition pair from
-  the NIfTI files and put its stores on the bucket, above.
+- [`pixi.toml`](pixi.toml), [`pipeline/`](pipeline/): the environments and the tasks that run the competition pair from
+  the NIfTI files, put its stores on the bucket, write the organisers' result files and open them in FSLeyes, above.
 
 The input data and the registration outputs are not in this repository: the competition pair's stores are on the
 bucket above, and the LINC hemisphere is public on DANDI, where the scripts read it from.
