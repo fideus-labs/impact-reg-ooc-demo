@@ -141,6 +141,11 @@ depends-on = [
 ]
 description = "Every preset of the table on both subjects as the competition's NIfTI pairs: Team_C_method_1 to 4 under competition/"
 
+[tasks.neuroglancer]
+cmd = "python pipeline/neuroglancer_link.py {{ subject }}"
+args = [{ arg = "subject", default = "subject_v" }]
+description = "The Neuroglancer link for one subject's stores on the bucket: the retardance under the FA after the affine and after each engine (README)"
+
 [feature.upload.dependencies]
 # The upload environment is s5cmd alone: no torch, no Python.
 s5cmd = "*"
