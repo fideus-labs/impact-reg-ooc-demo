@@ -45,6 +45,7 @@ KONFAI_ELASTIX_EXTRA_LIB = "$CONDA_PREFIX/lib/python3.12/site-packages/nvidia/cu
 default = ["torch212"]
 elastix = ["elastix"]
 upload = { features = ["upload"], no-default-feature = true }
+fsleyes = { features = ["fsleyes"], no-default-feature = true }
 
 [tasks.convert]
 cmd = "bash pipeline/convert.sh"
@@ -118,6 +119,28 @@ cmd = "python pipeline/score_pair.py {{ subject }}"
 args = [{ arg = "subject", default = "subject_v" }]
 description = "Every run of one subject on its pair grid: tissue Dice, mutual information, residual shift by MI and by gradients, folding and the field's size"
 
+[tasks.nifti]
+# The competition's result files of one run, in the organisers' layout under competition/ (their Competition_Results,
+# this repository as Team C): Team_C_method_<n>/Subject_<X>/{DMRI_to_PSOCT,PSOCT_to_DMRI}.nii.gz on the inputs' own
+# grids and headers, beside Data/Subject_<X>/{PSOCT,DMRI}.nii.gz linked from data/input/. The method number is the
+# preset's row in the README's table.
+cmd = "python pipeline/competition_results.py {{ preset }} {{ subject }}"
+args = [{ arg = "preset", default = "APEX_FIREANTS_SYN_CC" }, { arg = "subject", default = "subject_v" }]
+description = "One run as the competition's NIfTI pair, in the organisers' Team_C layout under competition/: pixi run nifti <preset> <subject> (after pixi run register <preset> <subject>)"
+
+[tasks.nifti-all]
+depends-on = [
+  { task = "nifti", args = ["APEX_FA_RET_BSPLINE", "subject_v"] },
+  { task = "nifti", args = ["APEX_FIREANTS_SYN_CC", "subject_v"] },
+  { task = "nifti", args = ["APEX_FIREANTS_TS", "subject_v"] },
+  { task = "nifti", args = ["APEX_CONVEXADAM_MIND", "subject_v"] },
+  { task = "nifti", args = ["APEX_FA_RET_BSPLINE", "subject_m"] },
+  { task = "nifti", args = ["APEX_FIREANTS_SYN_CC", "subject_m"] },
+  { task = "nifti", args = ["APEX_FIREANTS_TS", "subject_m"] },
+  { task = "nifti", args = ["APEX_CONVEXADAM_MIND", "subject_m"] },
+]
+description = "Every preset of the table on both subjects as the competition's NIfTI pairs: Team_C_method_1 to 4 under competition/"
+
 [feature.upload.dependencies]
 # The upload environment is s5cmd alone: no torch, no Python.
 s5cmd = "*"
@@ -125,3 +148,29 @@ s5cmd = "*"
 [feature.upload.tasks.upload]
 cmd = "bash pipeline/upload.sh"
 description = "Every OME-Zarr store of the pair (inputs, pair, moved FA and field of each preset in the table) to the public Filebase bucket, under its key in this tree: pixi run upload [--dry-run] [<subject> ...], with FILEBASE_KEY and FILEBASE_SECRET set"
+
+[feature.fsleyes.dependencies]
+# The viewer the competition's instructions use, in an environment of its own (wxPython and OpenGL, no torch).
+fsleyes = "*"
+
+[feature.fsleyes.tasks.view]
+# The organisers' own fsleyes commands, from their document, run from competition/: the carried image over the
+# subject's input, both in greyscale or the carried tissue as a red outline, with their display ranges per subject.
+cmd = "bash pipeline/view.sh {{ view }} {{ style }} {{ subject }} {{ method }}"
+args = [
+  { arg = "view", default = "dmri-in-psoct" },
+  { arg = "style", default = "outline" },
+  { arg = "subject", default = "V" },
+  { arg = "method", default = "2" },
+]
+description = "fsleyes on one method and subject as the organisers view them: pixi run view <psoct-in-dmri|dmri-in-psoct> <grey|outline> <M|V> <method>"
+
+[feature.fsleyes.tasks.render]
+cmd = "bash pipeline/view.sh --png {{ view }} {{ style }} {{ subject }} {{ method }}"
+args = [
+  { arg = "view", default = "dmri-in-psoct" },
+  { arg = "style", default = "outline" },
+  { arg = "subject", default = "V" },
+  { arg = "method", default = "2" },
+]
+description = "The same view as a PNG under competition/renders/, without a window (fsleyes render; xvfb-run pixi run render ... on a machine with no display)"
