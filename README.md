@@ -113,6 +113,7 @@ pixi run convert                          # every NIfTI -> data/ome-zarr/<subjec
 pixi run prepare subject_v                # stage 1 (orientation, affine) and the 0.4 mm pair, as OME-Zarr stores
 pixi run register FireANTs_SyN subject_v  # one preset on the pair -> out/subject_v/FireANTs_SyN/P000/
 pixi run register-all                     # elastix, FireANTs and ConvexAdam on both subjects
+pixi run upload                           # every store of both subjects to the public bucket (FILEBASE_KEY, FILEBASE_SECRET)
 ```
 
 Each task runs what it depends on: `register` prepares the pair, `prepare` converts the inputs. `register` takes a
@@ -176,6 +177,51 @@ information; 1.26 / 1.13 mm after the affine alone, and medians move in 0.4 mm s
 sets no criterion. The measures by image gradients, the method settings and the file formats are in
 [docs/apex_results.md](docs/apex_results.md).
 
+## The stores, on a public bucket
+
+Every OME-Zarr store of the competition pair is on a public Filebase bucket, under the key it has in this tree: over
+HTTPS at `https://impact-reg-ooc-demo.s3.filebase.io/<key>`, with GET allowed from any origin, so a browser viewer opens
+them, and through the S3 API as `s3://impact-reg-ooc-demo/<key>` at the endpoint `https://s3.filebase.io`. `pixi run upload` put
+them there: [`pipeline/upload.sh`](pipeline/upload.sh) syncs each store with s5cmd, in an environment of its own
+(s5cmd alone), with `FILEBASE_KEY` and `FILEBASE_SECRET` set to the account's access key and secret. A rerun sends
+only what changed; `pixi run upload --dry-run` lists the transfers, and a subject name after it keeps to that subject.
+A store's URL is for a Zarr reader or a viewer, not for a browser: its files are the objects under it. `<subject>`
+below is `subject_v` or `subject_m`.
+
+| store | content | format | MiB, v / m | https | s3 |
+|---|---|---|---|---|---|
+| `data/ome-zarr/<subject>/Ret_slide_deck.ome.zarr` | PS-OCT retardance, the competition's NIfTI as `pixi run convert` wrote it, on its own grid (0.11 and 0.2 mm): the fixed modality | NGFF 0.5, Zarr v3; (z, y, x) float32 | 218.4 / 181.5 | [subject_v](https://impact-reg-ooc-demo.s3.filebase.io/data/ome-zarr/subject_v/Ret_slide_deck.ome.zarr) · [subject_m](https://impact-reg-ooc-demo.s3.filebase.io/data/ome-zarr/subject_m/Ret_slide_deck.ome.zarr) | [subject_v](s3://impact-reg-ooc-demo/data/ome-zarr/subject_v/Ret_slide_deck.ome.zarr) · [subject_m](s3://impact-reg-ooc-demo/data/ome-zarr/subject_m/Ret_slide_deck.ome.zarr) |
+| `data/ome-zarr/<subject>/Ori_slide_deck.ome.zarr` | PS-OCT optic-axis orientation, radians, same grid | NGFF 0.5, Zarr v3; (z, y, x) float32 | 228.8 / 192.8 | [subject_v](https://impact-reg-ooc-demo.s3.filebase.io/data/ome-zarr/subject_v/Ori_slide_deck.ome.zarr) · [subject_m](https://impact-reg-ooc-demo.s3.filebase.io/data/ome-zarr/subject_m/Ori_slide_deck.ome.zarr) | [subject_v](s3://impact-reg-ooc-demo/data/ome-zarr/subject_v/Ori_slide_deck.ome.zarr) · [subject_m](s3://impact-reg-ooc-demo/data/ome-zarr/subject_m/Ori_slide_deck.ome.zarr) |
+| `data/ome-zarr/<subject>/Cro_slide_deck.ome.zarr` | PS-OCT cross-polarisation channel, same grid | NGFF 0.5, Zarr v3; (z, y, x) float32 | 153.0 / 117.3 | [subject_v](https://impact-reg-ooc-demo.s3.filebase.io/data/ome-zarr/subject_v/Cro_slide_deck.ome.zarr) · [subject_m](https://impact-reg-ooc-demo.s3.filebase.io/data/ome-zarr/subject_m/Cro_slide_deck.ome.zarr) | [subject_v](s3://impact-reg-ooc-demo/data/ome-zarr/subject_v/Cro_slide_deck.ome.zarr) · [subject_m](s3://impact-reg-ooc-demo/data/ome-zarr/subject_m/Cro_slide_deck.ome.zarr) |
+| `data/ome-zarr/<subject>/dti_FA.ome.zarr` | DTI fractional anisotropy, 0.4 mm: the moving modality | NGFF 0.5, Zarr v3; (z, y, x) | 4.6 / 9.9 | [subject_v](https://impact-reg-ooc-demo.s3.filebase.io/data/ome-zarr/subject_v/dti_FA.ome.zarr) · [subject_m](https://impact-reg-ooc-demo.s3.filebase.io/data/ome-zarr/subject_m/dti_FA.ome.zarr) | [subject_v](s3://impact-reg-ooc-demo/data/ome-zarr/subject_v/dti_FA.ome.zarr) · [subject_m](s3://impact-reg-ooc-demo/data/ome-zarr/subject_m/dti_FA.ome.zarr) |
+| `out/<subject>/pair/Fixed.ome.zarr` | the retardance, smoothed and resampled to 0.4 mm isotropic: the fixed image of every run | NGFF 0.4, Zarr v2; (1, z, y, x) float32, 0.4 mm | 7.9 / 8.4 | [subject_v](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_v/pair/Fixed.ome.zarr) · [subject_m](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_m/pair/Fixed.ome.zarr) | [subject_v](s3://impact-reg-ooc-demo/out/subject_v/pair/Fixed.ome.zarr) · [subject_m](s3://impact-reg-ooc-demo/out/subject_m/pair/Fixed.ome.zarr) |
+| `out/<subject>/pair/Moving.ome.zarr` | the FA through the stage-1 affine, on the same grid: the moving image | NGFF 0.4, Zarr v2; (1, z, y, x) float32, 0.4 mm | 4.4 / 4.5 | [subject_v](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_v/pair/Moving.ome.zarr) · [subject_m](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_m/pair/Moving.ome.zarr) | [subject_v](s3://impact-reg-ooc-demo/out/subject_v/pair/Moving.ome.zarr) · [subject_m](s3://impact-reg-ooc-demo/out/subject_m/pair/Moving.ome.zarr) |
+| `out/<subject>/pair/FixedMask.ome.zarr` | the retardance tissue widened by 1 mm: the fixed mask | NGFF 0.4, Zarr v2; (1, z, y, x) uint8, 0.4 mm | 0.2 / 0.2 | [subject_v](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_v/pair/FixedMask.ome.zarr) · [subject_m](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_m/pair/FixedMask.ome.zarr) | [subject_v](s3://impact-reg-ooc-demo/out/subject_v/pair/FixedMask.ome.zarr) · [subject_m](s3://impact-reg-ooc-demo/out/subject_m/pair/FixedMask.ome.zarr) |
+| `out/<subject>/pair/MovingMask.ome.zarr` | the whole grid: the moving mask | NGFF 0.4, Zarr v2; (1, z, y, x) uint8, 0.4 mm | 0.0 / 0.0 | [subject_v](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_v/pair/MovingMask.ome.zarr) · [subject_m](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_m/pair/MovingMask.ome.zarr) | [subject_v](s3://impact-reg-ooc-demo/out/subject_v/pair/MovingMask.ome.zarr) · [subject_m](s3://impact-reg-ooc-demo/out/subject_m/pair/MovingMask.ome.zarr) |
+| `out/<subject>/pair/FixedTissue.ome.zarr` | the retardance tissue, not widened, for the score's Dice | NGFF 0.4, Zarr v2; (1, z, y, x) uint8, 0.4 mm | 0.3 / 0.2 | [subject_v](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_v/pair/FixedTissue.ome.zarr) · [subject_m](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_m/pair/FixedTissue.ome.zarr) | [subject_v](s3://impact-reg-ooc-demo/out/subject_v/pair/FixedTissue.ome.zarr) · [subject_m](s3://impact-reg-ooc-demo/out/subject_m/pair/FixedTissue.ome.zarr) |
+| `out/<subject>/pair/MovingTissue.ome.zarr` | the FA tissue after the affine, for the score's Dice | NGFF 0.4, Zarr v2; (1, z, y, x) uint8, 0.4 mm | 0.2 / 0.2 | [subject_v](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_v/pair/MovingTissue.ome.zarr) · [subject_m](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_m/pair/MovingTissue.ome.zarr) | [subject_v](s3://impact-reg-ooc-demo/out/subject_v/pair/MovingTissue.ome.zarr) · [subject_m](s3://impact-reg-ooc-demo/out/subject_m/pair/MovingTissue.ome.zarr) |
+| `out/<subject>/APEX_FA_RET_BSPLINE/P000/Moved.ome.zarr` | elastix, MI + bending energy: the FA moved onto the retardance grid | NGFF 0.4, Zarr v2; (1, z, y, x) float32, 0.4 mm | 4.4 / 4.6 | [subject_v](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_v/APEX_FA_RET_BSPLINE/P000/Moved.ome.zarr) · [subject_m](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_m/APEX_FA_RET_BSPLINE/P000/Moved.ome.zarr) | [subject_v](s3://impact-reg-ooc-demo/out/subject_v/APEX_FA_RET_BSPLINE/P000/Moved.ome.zarr) · [subject_m](s3://impact-reg-ooc-demo/out/subject_m/APEX_FA_RET_BSPLINE/P000/Moved.ome.zarr) |
+| `out/<subject>/APEX_FA_RET_BSPLINE/P000/Transform.ome.zarr` | elastix, MI + bending energy: the displacement field | NGFF 0.6rc0, Zarr v3; (3, z, y, x) float64, mm, components z, y, x; RFC-5 `displacements` | 26.9 / 29.9 | [subject_v](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_v/APEX_FA_RET_BSPLINE/P000/Transform.ome.zarr) · [subject_m](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_m/APEX_FA_RET_BSPLINE/P000/Transform.ome.zarr) | [subject_v](s3://impact-reg-ooc-demo/out/subject_v/APEX_FA_RET_BSPLINE/P000/Transform.ome.zarr) · [subject_m](s3://impact-reg-ooc-demo/out/subject_m/APEX_FA_RET_BSPLINE/P000/Transform.ome.zarr) |
+| `out/<subject>/APEX_FIREANTS_SYN_CC/P000/Moved.ome.zarr` | FireANTs, SyN + cross-correlation: the FA moved onto the retardance grid | NGFF 0.4, Zarr v2; (1, z, y, x) float32, 0.4 mm | 4.4 / 4.3 | [subject_v](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_v/APEX_FIREANTS_SYN_CC/P000/Moved.ome.zarr) · [subject_m](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_m/APEX_FIREANTS_SYN_CC/P000/Moved.ome.zarr) | [subject_v](s3://impact-reg-ooc-demo/out/subject_v/APEX_FIREANTS_SYN_CC/P000/Moved.ome.zarr) · [subject_m](s3://impact-reg-ooc-demo/out/subject_m/APEX_FIREANTS_SYN_CC/P000/Moved.ome.zarr) |
+| `out/<subject>/APEX_FIREANTS_SYN_CC/P000/Transform.ome.zarr` | FireANTs, SyN + cross-correlation: the displacement field | NGFF 0.6rc0, Zarr v3; (3, z, y, x) float64, mm, components z, y, x; RFC-5 `displacements` | 28.7 / 32.7 | [subject_v](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_v/APEX_FIREANTS_SYN_CC/P000/Transform.ome.zarr) · [subject_m](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_m/APEX_FIREANTS_SYN_CC/P000/Transform.ome.zarr) | [subject_v](s3://impact-reg-ooc-demo/out/subject_v/APEX_FIREANTS_SYN_CC/P000/Transform.ome.zarr) · [subject_m](s3://impact-reg-ooc-demo/out/subject_m/APEX_FIREANTS_SYN_CC/P000/Transform.ome.zarr) |
+| `out/<subject>/APEX_FIREANTS_TS/P000/Moved.ome.zarr` | FireANTs, SyN + IMPACT (TotalSegmentator features): the FA moved onto the retardance grid | NGFF 0.4, Zarr v2; (1, z, y, x) float32, 0.4 mm | 4.4 / 4.6 | [subject_v](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_v/APEX_FIREANTS_TS/P000/Moved.ome.zarr) · [subject_m](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_m/APEX_FIREANTS_TS/P000/Moved.ome.zarr) | [subject_v](s3://impact-reg-ooc-demo/out/subject_v/APEX_FIREANTS_TS/P000/Moved.ome.zarr) · [subject_m](s3://impact-reg-ooc-demo/out/subject_m/APEX_FIREANTS_TS/P000/Moved.ome.zarr) |
+| `out/<subject>/APEX_FIREANTS_TS/P000/Transform.ome.zarr` | FireANTs, SyN + IMPACT (TotalSegmentator features): the displacement field | NGFF 0.6rc0, Zarr v3; (3, z, y, x) float64, mm, components z, y, x; RFC-5 `displacements` | 28.6 / 32.6 | [subject_v](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_v/APEX_FIREANTS_TS/P000/Transform.ome.zarr) · [subject_m](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_m/APEX_FIREANTS_TS/P000/Transform.ome.zarr) | [subject_v](s3://impact-reg-ooc-demo/out/subject_v/APEX_FIREANTS_TS/P000/Transform.ome.zarr) · [subject_m](s3://impact-reg-ooc-demo/out/subject_m/APEX_FIREANTS_TS/P000/Transform.ome.zarr) |
+| `out/<subject>/APEX_CONVEXADAM_MIND/P000/Moved.ome.zarr` | ConvexAdam, MIND: the FA moved onto the retardance grid | NGFF 0.4, Zarr v2; (1, z, y, x) float32, 0.4 mm | 5.7 / 6.0 | [subject_v](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_v/APEX_CONVEXADAM_MIND/P000/Moved.ome.zarr) · [subject_m](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_m/APEX_CONVEXADAM_MIND/P000/Moved.ome.zarr) | [subject_v](s3://impact-reg-ooc-demo/out/subject_v/APEX_CONVEXADAM_MIND/P000/Moved.ome.zarr) · [subject_m](s3://impact-reg-ooc-demo/out/subject_m/APEX_CONVEXADAM_MIND/P000/Moved.ome.zarr) |
+| `out/<subject>/APEX_CONVEXADAM_MIND/P000/Transform.ome.zarr` | ConvexAdam, MIND: the displacement field | NGFF 0.6rc0, Zarr v3; (3, z, y, x) float64, mm, components z, y, x; RFC-5 `displacements` | 28.8 / 32.7 | [subject_v](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_v/APEX_CONVEXADAM_MIND/P000/Transform.ome.zarr) · [subject_m](https://impact-reg-ooc-demo.s3.filebase.io/out/subject_m/APEX_CONVEXADAM_MIND/P000/Transform.ome.zarr) | [subject_v](s3://impact-reg-ooc-demo/out/subject_v/APEX_CONVEXADAM_MIND/P000/Transform.ome.zarr) · [subject_m](s3://impact-reg-ooc-demo/out/subject_m/APEX_CONVEXADAM_MIND/P000/Transform.ome.zarr) |
+
+With zarr-python 3 (`fsspec` and `aiohttp` beside it, as in the pixi environment), straight from the bucket:
+
+```python
+import zarr
+bucket = "https://impact-reg-ooc-demo.s3.filebase.io/"
+fixed = zarr.open_group(bucket + "out/subject_v/pair/Fixed.ome.zarr", mode="r")["scale0"]["image"]                         # (1, z, y, x)
+field = zarr.open_group(bucket + "out/subject_v/APEX_FIREANTS_SYN_CC/P000/Transform.ome.zarr", mode="r")["scale0"]["image"]  # (3, z, y, x), mm
+```
+
+```bash
+s5cmd --no-sign-request --endpoint-url https://s3.filebase.io cp 's3://impact-reg-ooc-demo/*' .   # the whole tree, 1.4 GiB, as data/ and out/
+```
+
 ## In this repository
 
 - [`talk/`](talk/): the talk, about 7 minutes (PowerPoint, with speaker notes).
@@ -185,10 +231,10 @@ sets no criterion. The measures by image gradients, the method settings and the 
 - [`linc/`](linc/): the LINC scripts the write-up runs. They keep the absolute paths of the workstation they ran on,
   and some scripts the write-up names are not included.
 - [`pixi.toml`](pixi.toml), [`pipeline/`](pipeline/): the environment and the tasks that run the competition pair from
-  the NIfTI files, above.
+  the NIfTI files and put its stores on the bucket, above.
 
-The input data and the registration outputs are not in this repository: the datasets are not ours to redistribute.
-The LINC hemisphere is public on DANDI and the scripts read it from there.
+The input data and the registration outputs are not in this repository: the competition pair's stores are on the
+bucket above, and the LINC hemisphere is public on DANDI, where the scripts read it from.
 
 Built on [KonfAI](https://github.com/fideus-labs/KonfAI), [impact-reg-konfai](https://pypi.org/project/impact-reg-konfai/),
 [ITKIMPACT](https://github.com/InsightSoftwareConsortium/ITKIMPACT) and [ImpactLoss](https://github.com/vboussot/ImpactLoss).
